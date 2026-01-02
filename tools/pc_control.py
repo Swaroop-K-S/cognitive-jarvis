@@ -6,6 +6,7 @@ Provides tools for controlling the computer: opening apps, files, folders, etc.
 import subprocess
 import os
 import sys
+import time
 from datetime import datetime
 from typing import Optional
 
@@ -29,32 +30,82 @@ from config import get_app_path
 from .registry import tool
 
 
-@tool("open_application", "Opens an application by name. Supports common apps like notepad, chrome, spotify, vscode, discord, calculator, etc.")
+@tool("open_application", "Opens an application or file by name/path. Supports apps (notepad, chrome), files (C:/doc.txt), and commands.")
 def open_application(app_name: str) -> str:
     """
-    Opens an application by name.
+    Opens an application, file, or URI.
     
     Args:
-        app_name: The name of the application to open (e.g., 'notepad', 'chrome', 'spotify')
+        app_name: The name of the app, path to a file, or command to run
         
     Returns:
         A message indicating success or failure
     """
     try:
-        app_path = get_app_path(app_name)
+        # 1. Get resolved path if it's a common app alias
+        target = get_app_path(app_name)
         
-        # Try to run the application
-        if os.path.exists(app_path):
-            subprocess.Popen(app_path, shell=True)
-        else:
-            # Try running it directly (for system apps like notepad, calc, etc.)
-            subprocess.Popen(app_path, shell=True)
-        
-        return f"Successfully opened {app_name}"
-    except FileNotFoundError:
-        return f"Could not find application: {app_name}. Please check if it's installed."
+        # 2. Try os.startfile (Windows native "Run")
+        # This handles EXEs, registered apps, file associations (.txt -> Notepad), and URLs
+        try:
+            os.startfile(target)
+            return f"Successfully opened: {target}"
+        except OSError:
+            # 3. Fallback to subprocess for commands that aren't files/registered (e.g. cmd flags)
+            # Use shell=True to allow searching system PATH
+            subprocess.Popen(target, shell=True)
+            return f"Attempted to run command: {target}"
+            
     except Exception as e:
-        return f"Error opening {app_name}: {str(e)}"
+        return f"Error opening '{app_name}': {str(e)}. Try exact path or 'locate' it first."
+
+
+@tool("type_text", "Types text using the keyboard. Useful for entering messages into opened applications.")
+def type_text(text: str, interval: float = 0.05) -> str:
+    """
+    Types text using the keyboard.
+    
+    Args:
+        text: The text to type
+        interval: Delay between key presses (default 0.05s)
+        
+    Returns:
+        Success message
+    """
+    if not PYAUTOGUI_AVAILABLE:
+        return "Error: pyautogui is not installed. Run: pip install pyautogui"
+    
+    try:
+        # Give user time to switch focus if running manually, but for JARVIS
+        # we usually open an app first. Add small safety delay.
+        time.sleep(1) 
+        
+        pyautogui.write(text, interval=interval)
+        return f"Typed: {text}"
+    except Exception as e:
+        return f"Error typing text: {str(e)}"
+
+
+@tool("press_key", "Presses a specific key (e.g., 'enter', 'tab', 'ctrl', 'a')")
+def press_key(key: str, times: int = 1) -> str:
+    """
+    Presses a specific key.
+    
+    Args:
+        key: The key to press
+        times: Number of times to press
+        
+    Returns:
+        Success message
+    """
+    if not PYAUTOGUI_AVAILABLE:
+        return "Error: pyautogui is not installed"
+        
+    try:
+        pyautogui.press(key, presses=times)
+        return f"Pressed key: {key} ({times} times)"
+    except Exception as e:
+        return f"Error pressing key: {str(e)}"
 
 
 @tool("open_file", "Opens a file with its default application")

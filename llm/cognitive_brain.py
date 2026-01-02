@@ -143,9 +143,9 @@ TOOL_CALL: tool_name(arg1="value1")
             response = self._generate_response(user_input, decision.memory_context)
             
             # Execute any tool calls
-            tool_result = self._extract_and_execute_tool(response)
-            if tool_result:
-                response = f"{response}\n\n✓ {tool_result}"
+            tool_results = self._extract_and_execute_tools(response)
+            if tool_results:
+                response = f"{response}\n\n" + "\n".join([f"✓ {res}" for res in tool_results])
             
             # Save this conversation to memory
             self.cognitive.save_conversation(user_input, response)
@@ -217,22 +217,56 @@ TOOL_CALL: tool_name(arg1="value1")
         except Exception as e:
             return f"Error: {e}"
     
-    def _extract_and_execute_tool(self, response: str) -> Optional[str]:
-        match = re.search(r'TOOL_CALL:\s*(\w+)\(([^)]*)\)', response)
-        if not match:
-            return None
+    def _extract_and_execute_tools(self, response: str) -> List[str]:
+        """Extract and execute ALL tool calls in the response."""
+        results = []
         
-        tool_name = match.group(1)
-        args = {}
-        for m in re.finditer(r'(\w+)=["\'](.*?)["\']', match.group(2)):
-            args[m.group(1)] = m.group(2)
+        # Pattern for strict match: TOOL_CALL: name(args)
+        # We process matches sequentially
         
-        if tool_requires_confirmation(tool_name):
-            if self.confirmation_callback:
-                if not self.confirmation_callback(tool_name, args):
-                    return f"Cancelled: {tool_name}"
+        # 1. Find all strict matches
+        strict_matches = list(re.finditer(r'TOOL_CALL:\s*(\w+)\(([^)]*)\)', response))
         
-        return execute_tool(tool_name, args)
+        # 2. If no strict matches, try loose matches
+        if not strict_matches:
+            known_tools = "|".join(get_all_tools().keys())
+            if known_tools:
+                # Look for known_tool_name(args)
+                loose_matches = list(re.finditer(fr'({known_tools})\s*\(([^)]*)\)', response))
+                matches = loose_matches
+            else:
+                matches = []
+        else:
+            matches = strict_matches
+            
+        for match in matches:
+            tool_name = match.group(1)
+            args_str = match.group(2)
+            
+            args = {}
+            # Parse args: look for key="value" or key='value'
+            for m in re.finditer(r'(\w+)=["\'](.*?)["\']', args_str):
+                args[m.group(1)] = m.group(2)
+                
+            # If no named args found, check if it's a positional arg (simple case)
+            if not args and args_str.strip():
+                # Basic cleanup of quotes
+                clean_arg = args_str.strip().strip('"\'')
+                # If tool has 1 required arg, map it
+                tool_info = get_all_tools().get(tool_name, {})
+                required = tool_info.get("required", [])
+                if len(required) == 1:
+                    args[required[0]] = clean_arg
+            
+            if tool_requires_confirmation(tool_name):
+                if self.confirmation_callback:
+                    if not self.confirmation_callback(tool_name, args):
+                        results.append(f"Cancelled: {tool_name}")
+                        continue
+            
+            results.append(execute_tool(tool_name, args))
+            
+        return results
     
     def clear_history(self):
         self.conversation_history = [self.conversation_history[0]]

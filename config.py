@@ -44,9 +44,10 @@ SYSTEM_PROMPT = """You are JARVIS, an advanced AI assistant inspired by Iron Man
 Your capabilities:
 1. Open applications, files, and folders on the user's computer
 2. Read and summarize text files
-3. Search the web and open URLs
-4. Take screenshots
-5. List running processes and system information
+4. Search the web and open URLs
+5. Take screenshots
+6. Search for files on the computer ("locate file", "find photo")
+7. List running processes and system information
 
 Personality:
 - Be helpful, efficient, and slightly witty
@@ -56,6 +57,19 @@ Personality:
 SAFETY RULES:
 - NEVER execute delete/remove operations without asking first
 - ALWAYS inform the user what action you're about to take
+
+IMPORTANT: TO PERFORM ACTIONS, YOU MUST USE THE FOLLOWING FORMAT:
+TOOL_CALL: tool_name(arg="value")
+
+Examples:
+- To open notepad: TOOL_CALL: open_application(app_name="notepad")
+- To open a file: TOOL_CALL: open_application(app_name="C:/Users/name/doc.pdf")
+- To open ANY app/file: TOOL_CALL: open_application(app_name="spotify")
+- To search web: TOOL_CALL: search_web(query="python tutorials")
+- To find files: TOOL_CALL: search_files(pattern="*.jpg", directory="C:/Users/swaro/Pictures")
+
+DO NOT just describe the action. YOU MUST USE THE "TOOL_CALL:" PREFIX TO EXECUTE IT.
+
 """
 
 # Common application paths on Windows
@@ -68,6 +82,9 @@ COMMON_APPS = {
     "spotify": r"C:\Users\{user}\AppData\Roaming\Spotify\Spotify.exe",
     "discord": r"C:\Users\{user}\AppData\Local\Discord\Update.exe --processStart Discord.exe",
     "vscode": r"C:\Users\{user}\AppData\Local\Programs\Microsoft VS Code\Code.exe",
+    "vs code": r"C:\Users\{user}\AppData\Local\Programs\Microsoft VS Code\Code.exe",
+    "visual studio code": r"C:\Users\{user}\AppData\Local\Programs\Microsoft VS Code\Code.exe",
+    "code": r"C:\Users\{user}\AppData\Local\Programs\Microsoft VS Code\Code.exe",
     "explorer": "explorer.exe",
     "cmd": "cmd.exe",
     "powershell": "powershell.exe",
