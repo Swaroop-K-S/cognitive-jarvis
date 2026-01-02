@@ -1,0 +1,19 @@
+# JARVIS AI Assistant Dependencies
+
+# Gemini API (Online Mode)
+google-generativeai>=0.8.0
+
+# Memory System (ChromaDB runs on CPU)
+chromadb>=0.4.0
+sentence-transformers>=2.2.0
+
+# PC Control
+pyautogui>=0.9.54
+
+# Voice (Offline TTS)
+pyttsx3>=2.90
+
+# Utilities
+python-dotenv>=1.0.0
+psutil>=5.9.0
+colorama>=0.4.6
