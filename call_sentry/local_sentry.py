@@ -121,7 +121,7 @@ CURRENT_MODE = "professional"
 VOSK_MODEL_PATH = os.path.join(os.path.dirname(__file__), "vosk-model")
 
 # Call history
-CALL_HISTORY_FILE = os.path.join(os.path.dirname(__file__), "call_history.json")
+CALL_HISTORY_FILE = os.path.join(os.path.dirname(__file__), "call_history.toml")
 
 
 # =============================================================================
@@ -159,9 +159,7 @@ class CallHistoryManager:
     def _ensure_file(self):
         if not os.path.exists(self.filepath):
             with open(self.filepath, 'w') as f:
-                json.dump({"calls": []}, f)
-    
-    def add_call(self, record: CallRecord):
+                f.write(_toml_dumps({"calls": []})); # record: CallRecord):
         data = self._load()
         data["calls"].append(record.to_dict())
         self._save(data)
@@ -177,11 +175,11 @@ class CallHistoryManager:
     
     def _load(self) -> dict:
         with open(self.filepath, 'r') as f:
-            return json.load(f)
+            return tomllib.load(f)
     
     def _save(self, data: dict):
         with open(self.filepath, 'w') as f:
-            json.dump(data, f, indent=2)
+            f.write(_toml_dumps(data)); # indent=2)
 
 
 # =============================================================================
@@ -272,7 +270,7 @@ class LocalSpeechRecognizer:
                 data = self._stream.read(4000, exception_on_overflow=False)
                 
                 if self.recognizer.AcceptWaveform(data):
-                    result = json.loads(self.recognizer.Result())
+                    result = tomllib.loads(self.recognizer.Result())
                     text = result.get("text", "").strip()
                     if text:
                         self._stream.stop_stream()
@@ -280,7 +278,7 @@ class LocalSpeechRecognizer:
                         return text
             
             # Get final result
-            result = json.loads(self.recognizer.FinalResult())
+            result = tomllib.loads(self.recognizer.FinalResult())
             self._stream.stop_stream()
             self._stream.close()
             return result.get("text", "").strip() or None
@@ -363,7 +361,7 @@ def generate_response(caller_text: str, conversation: List[Dict], mode: str) -> 
         )
         
         with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read().decode())
+            result = tomllib.loads(resp.read().decode())
             return result["message"]["content"]
     
     except Exception as e:
@@ -397,7 +395,7 @@ SUMMARY:"""
         )
         
         with urllib.request.urlopen(req, timeout=15) as resp:
-            result = json.loads(resp.read().decode())
+            result = tomllib.loads(resp.read().decode())
             summary = result.get("response", "Call recorded.")
             
             # Extract action items

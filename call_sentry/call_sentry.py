@@ -107,7 +107,7 @@ Rules:
 CURRENT_MODE = os.getenv("CALL_SENTRY_MODE", "professional")
 
 # Call history storage
-CALL_HISTORY_FILE = os.path.join(os.path.dirname(__file__), "call_history.json")
+CALL_HISTORY_FILE = os.path.join(os.path.dirname(__file__), "call_history.toml")
 
 
 # =============================================================================
