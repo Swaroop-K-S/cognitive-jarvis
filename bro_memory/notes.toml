@@ -11,3 +11,17 @@ content = "Test note from test suite"
 tags = ""
 created = "2026-01-04T21:53:52.588348"
 pinned = false
+
+[[items]]
+id = 3
+content = "Test note from test suite"
+tags = ""
+created = "2026-01-04T22:02:39.725331"
+pinned = false
+
+[[items]]
+id = 4
+content = "Test note from test suite"
+tags = ""
+created = "2026-01-04T22:04:01.905167"
+pinned = false

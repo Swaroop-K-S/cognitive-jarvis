@@ -1,16 +1,16 @@
-# Weather cache - Updated: 2026-01-04T21:58:57.631658
+# Weather cache - Updated: 2026-01-04T22:04:31.910513
 
-[bangalore]
-location = "Bengaluru"
-country = "India"
-lat = 12.97194
-lon = 77.59369
-temp_c = 18.5
-feels_like_c = 18.5
-humidity = 68
-wind_kmph = 5.9
-wind_dir = "E"
-condition = "Partly cloudy"
-weather_code = 2
+[london]
+location = "London"
+country = "United Kingdom"
+lat = 51.50853
+lon = -0.12574
+temp_c = 1.3
+feels_like_c = -2.4
+humidity = 71
+wind_kmph = 7.8
+wind_dir = "WSW"
+condition = "Mainly clear"
+weather_code = 1
 from_cache = False
-cached_at = "2026-01-04T21:58:57.631658"
+cached_at = "2026-01-04T22:04:31.910513"
