@@ -101,7 +101,7 @@ def say(text: str) -> bool:
     Returns:
         True if successful
     """
-    print(f"🤖 JARVIS: {text}")
+    print(f"🤖 BRO: {text}")
     return speak(text, wait=True)
 
 

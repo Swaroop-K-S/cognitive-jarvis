@@ -1,5 +1,5 @@
 """
-JARVIS Smart Model Selector
+BRO Smart Model Selector
 Intelligently routes requests to the best specialist model.
 
 Models:
@@ -20,7 +20,7 @@ from enum import Enum
 
 
 class TaskType(Enum):
-    """Types of tasks JARVIS can handle."""
+    """Types of tasks BRO can handle."""
     CODING = "coding"
     VISION = "vision"
     REASONING = "reasoning"
@@ -36,9 +36,12 @@ class ModelSpec:
     task_type: TaskType
     keywords: list      # Keywords that trigger this model
     priority: int       # Higher = preferred when multiple match
+    alternatives: list = None  # Alternative model names if primary unavailable
 
 
-# Model Registry - Best specialists for RTX 5060 (8GB)
+# Model Registry - Multiple options per category
+# Primary models + alternatives for flexibility
+
 MODELS = {
     TaskType.CODING: ModelSpec(
         name="qwen2.5-coder:7b",
@@ -50,10 +53,11 @@ MODELS = {
             "fix", "error", "bug", "implement", "write", "create function",
             "refactor", "optimize", "algorithm", "api", "database"
         ],
-        priority=10
+        priority=10,
+        alternatives=["qwen2.5-coder:3b", "codellama:7b", "deepseek-coder:6.7b"]
     ),
     TaskType.VISION: ModelSpec(
-        name="moondream",
+        name="moondream",  # User has moondream installed
         vram=1.5,
         task_type=TaskType.VISION,
         keywords=[
@@ -61,7 +65,8 @@ MODELS = {
             "see", "show me", "what is this", "describe", "analyze image",
             "read this", "ocr", "scan", "camera", "screen"
         ],
-        priority=10
+        priority=10,
+        alternatives=["llava", "llava:13b", "bakllava"]
     ),
     TaskType.REASONING: ModelSpec(
         name="deepseek-r1:8b",
@@ -72,17 +77,19 @@ MODELS = {
             "logic", "puzzle", "riddle", "think", "reason",
             "why", "explain how", "step by step", "proof", "theorem"
         ],
-        priority=8
+        priority=8,
+        alternatives=["gemma3:12b", "qwen2.5:7b", "phi3:medium"]
     ),
     TaskType.GENERAL: ModelSpec(
-        name="llama3.2",
-        vram=4.0,
+        name="gemma3",  # User has gemma3 installed (Google's latest!)
+        vram=5.0,
         task_type=TaskType.GENERAL,
         keywords=[],  # Fallback for unmatched queries
-        priority=1
+        priority=1,
+        alternatives=["gemma3:12b", "llama3.2", "qwen2.5:7b", "mistral:7b"]
     ),
     TaskType.SYSTEM: ModelSpec(
-        name="llama3.2",  # Use lightweight model for system commands
+        name="llama3.2",  # User has this installed - lightweight for commands
         vram=4.0,
         task_type=TaskType.SYSTEM,
         keywords=[
@@ -90,9 +97,57 @@ MODELS = {
             "file", "directory", "app", "application", "process",
             "screenshot", "system", "computer", "settings"
         ],
-        priority=9
+        priority=9,
+        alternatives=["gemma3", "phi3:mini"]
     )
 }
+
+# Alternative model presets for different hardware configurations
+MODEL_PRESETS = {
+    "high_vram": {
+        # For GPUs with 12GB+ VRAM
+        TaskType.CODING: "qwen2.5-coder:14b",
+        TaskType.VISION: "llava:13b",
+        TaskType.REASONING: "deepseek-r1:14b",
+        TaskType.GENERAL: "gemma3:12b",
+        TaskType.SYSTEM: "qwen2.5:7b",
+    },
+    "medium_vram": {
+        # For GPUs with 8GB VRAM (default)
+        TaskType.CODING: "qwen2.5-coder:7b",
+        TaskType.VISION: "moondream",
+        TaskType.REASONING: "deepseek-r1:8b",
+        TaskType.GENERAL: "gemma3",
+        TaskType.SYSTEM: "llama3.2",
+    },
+    "low_vram": {
+        # For GPUs with 4-6GB VRAM
+        TaskType.CODING: "qwen2.5-coder:3b",
+        TaskType.VISION: "moondream",
+        TaskType.REASONING: "qwen2.5:3b",
+        TaskType.GENERAL: "gemma3",
+        TaskType.SYSTEM: "llama3.2",
+    },
+    "cpu_only": {
+        # For CPU-only systems
+        TaskType.CODING: "qwen2.5-coder:1.5b",
+        TaskType.VISION: "moondream",
+        TaskType.REASONING: "qwen2.5:1.5b",
+        TaskType.GENERAL: "gemma3",
+        TaskType.SYSTEM: "llama3.2",
+    }
+}
+
+# Recommended models to install (user already has most of these!)
+RECOMMENDED_MODELS = [
+    ("gemma3", "General conversation - Google's latest, very capable"),
+    ("gemma3:12b", "Larger general model - more capable, needs 8GB+ VRAM"),
+    ("qwen2.5-coder:7b", "Coding specialist - Excellent at programming"),
+    ("llama3.2", "Fast general - Quick responses, system commands"),
+    ("moondream", "Vision - Lightweight image analysis"),
+    ("llava", "Vision - More accurate image analysis (optional)"),
+    ("deepseek-r1:8b", "Reasoning - Math and logic specialist"),
+]
 
 
 class ModelSelector:

@@ -1,5 +1,5 @@
 """
-JARVIS Memory System
+BRO Memory System
 Long-term memory using ChromaDB + sentence-transformers.
 Runs on CPU to save GPU VRAM for the LLM.
 """
@@ -29,9 +29,9 @@ except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
 
 
-class JarvisMemory:
+class BROMemory:
     """
-    Long-term memory for JARVIS using ChromaDB.
+    Long-term memory for BRO using ChromaDB.
     Stores conversations, facts, and user preferences.
     """
     
@@ -44,7 +44,7 @@ class JarvisMemory:
         """
         self.memory_path = memory_path or os.path.join(
             os.path.dirname(os.path.dirname(__file__)), 
-            "jarvis_memory"
+            "BRO_memory"
         )
         self.client = None
         self.collection = None
@@ -64,8 +64,8 @@ class JarvisMemory:
             
             # Create or get the memories collection
             self.collection = self.client.get_or_create_collection(
-                name="jarvis_memories",
-                metadata={"description": "JARVIS long-term memory"}
+                name="BRO_memories",
+                metadata={"description": "BRO long-term memory"}
             )
             
             # Initialize sentence transformer for embeddings (runs on CPU)
@@ -193,7 +193,7 @@ class JarvisMemory:
     
     def remember_conversation(self, user_msg: str, assistant_msg: str) -> bool:
         """Store a conversation exchange."""
-        content = f"User: {user_msg}\nJARVIS: {assistant_msg}"
+        content = f"User: {user_msg}\nBRO: {assistant_msg}"
         return self.remember(content, memory_type="conversation")
     
     def get_stats(self) -> Dict[str, int]:
@@ -213,10 +213,10 @@ class JarvisMemory:
             return False
         
         try:
-            self.client.delete_collection("jarvis_memories")
+            self.client.delete_collection("BRO_memories")
             self.collection = self.client.get_or_create_collection(
-                name="jarvis_memories",
-                metadata={"description": "JARVIS long-term memory"}
+                name="BRO_memories",
+                metadata={"description": "BRO long-term memory"}
             )
             return True
         except:
@@ -224,13 +224,13 @@ class JarvisMemory:
 
 
 # Global memory instance
-_memory: Optional[JarvisMemory] = None
+_memory: Optional[BROMemory] = None
 
 
-def get_memory() -> JarvisMemory:
+def get_memory() -> BROMemory:
     """Get the global memory instance."""
     global _memory
     if _memory is None:
-        _memory = JarvisMemory()
+        _memory = BROMemory()
         _memory.initialize()
     return _memory

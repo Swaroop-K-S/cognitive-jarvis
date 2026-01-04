@@ -1,5 +1,5 @@
 """
-JARVIS LLM Package
+BRO LLM Package
 Cognitive brain with memory and smart model selection.
 """
 

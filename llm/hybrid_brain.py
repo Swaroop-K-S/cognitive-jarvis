@@ -1,5 +1,5 @@
 """
-JARVIS Hybrid Brain with Smart Model Selection
+BRO Hybrid Brain with Smart Model Selection
 - Online: Gemini API (0% VRAM, max intelligence)
 - Offline: Specialist models (auto-selected per task)
 

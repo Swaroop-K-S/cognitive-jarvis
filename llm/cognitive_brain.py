@@ -1,5 +1,5 @@
 """
-JARVIS Cognitive Brain
+BRO Cognitive Brain
 Combines Hybrid LLM + Memory + Smart Routing into one unified brain.
 """
 
@@ -29,7 +29,7 @@ from memory import get_memory, CHROMADB_AVAILABLE
 
 class CognitiveBrain:
     """
-    JARVIS Cognitive Brain
+    BRO Cognitive Brain
     - Remembers context from past conversations
     - Thinks before acting
     - Smart-routes to specialist models

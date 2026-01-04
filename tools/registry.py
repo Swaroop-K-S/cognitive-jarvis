@@ -1,6 +1,6 @@
 """
 Tool Registry Module
-Provides a decorator-based system for registering tools that JARVIS can use.
+Provides a decorator-based system for registering tools that BRO can use.
 Generates OpenAI-compatible function schemas for tool calling.
 """
 
@@ -14,12 +14,12 @@ _TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {}
 
 def tool(name: str, description: str, requires_confirmation: bool = False):
     """
-    Decorator to register a function as a JARVIS tool.
+    Decorator to register a function as a BRO tool.
     
     Args:
         name: The name of the tool (used by LLM to call it)
         description: Human-readable description of what the tool does
-        requires_confirmation: If True, JARVIS will ask for user confirmation before executing
+        requires_confirmation: If True, BRO will ask for user confirmation before executing
     
     Example:
         @tool("open_app", "Opens an application by name")

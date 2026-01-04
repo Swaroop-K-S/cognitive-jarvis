@@ -1,5 +1,5 @@
 """
-JARVIS Offline Brain Module
+BRO Offline Brain Module
 Uses Ollama for local LLM inference - works completely offline!
 """
 
@@ -21,7 +21,7 @@ from tools.registry import tool_requires_confirmation, get_all_tools
 
 class OllamaBrain:
     """
-    Offline JARVIS brain using Ollama for local LLM inference.
+    Offline BRO brain using Ollama for local LLM inference.
     No internet required!
     """
     
@@ -104,13 +104,13 @@ If no tool is needed, just respond conversationally.
     
     def process(self, user_input: str) -> str:
         """
-        Process user input and return JARVIS's response.
+        Process user input and return BRO's response.
         
         Args:
             user_input: The user's message or command
             
         Returns:
-            JARVIS's response as a string
+            BRO's response as a string
         """
         if not self.is_available():
             return self._handle_ollama_unavailable()
@@ -210,7 +210,7 @@ If no tool is needed, just respond conversationally.
 1. Install Ollama from: https://ollama.com/download
 2. Start Ollama (it runs in the background)
 3. Pull a model: ollama pull llama3.2
-4. Restart JARVIS
+4. Restart BRO
 
 Available models: llama3.2, mistral, phi3, gemma2
 """

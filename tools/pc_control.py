@@ -29,11 +29,104 @@ from config import get_app_path
 
 from .registry import tool
 
+# Process name mapping for common apps
+APP_PROCESS_MAP = {
+    "chrome": ["chrome.exe"],
+    "google chrome": ["chrome.exe"],
+    "firefox": ["firefox.exe"],
+    "notepad": ["notepad.exe"],
+    "spotify": ["spotify.exe"],
+    "discord": ["discord.exe", "update.exe"],
+    "vscode": ["code.exe"],
+    "vs code": ["code.exe"],
+    "code": ["code.exe"],
+    "edge": ["msedge.exe"],
+    "word": ["winword.exe"],
+    "excel": ["excel.exe"],
+    "explorer": ["explorer.exe"],
+}
 
-@tool("open_application", "Opens an application or file by name/path. Supports apps (notepad, chrome), files (C:/doc.txt), and commands.")
+
+def is_app_running(app_name: str) -> bool:
+    """Check if an application is currently running."""
+    if not PSUTIL_AVAILABLE:
+        return False
+    
+    app_lower = app_name.lower()
+    expected = APP_PROCESS_MAP.get(app_lower, [])
+    
+    if not expected:
+        # For unknown apps, try matching the name directly
+        expected = [f"{app_lower}.exe"]
+    
+    for proc in psutil.process_iter(['name']):
+        try:
+            proc_name = proc.info['name'].lower()
+            if proc_name in [e.lower() for e in expected]:
+                return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    return False
+
+
+@tool("check_app_running", "Checks if an application is currently running on the computer.")
+def check_app_running(app_name: str) -> str:
+    """Check if an app is running and return status."""
+    if is_app_running(app_name):
+        return f"✓ {app_name} is currently running."
+    else:
+        return f"✗ {app_name} is NOT running."
+
+
+@tool("close_application", "Closes/terminates an application by name. Use for 'close chrome', 'quit spotify', etc.")
+def close_application(app_name: str) -> str:
+    """
+    Close an application by terminating its process.
+    
+    Args:
+        app_name: Name of the app to close (e.g., 'chrome', 'notepad', 'spotify')
+        
+    Returns:
+        Message indicating success or failure
+    """
+    if not PSUTIL_AVAILABLE:
+        return "❌ Cannot close apps: psutil not installed."
+    
+    app_lower = app_name.lower()
+    expected = APP_PROCESS_MAP.get(app_lower, [])
+    
+    if not expected:
+        # For unknown apps, try matching the name directly
+        expected = [f"{app_lower}.exe"]
+    
+    closed_count = 0
+    errors = []
+    
+    for proc in psutil.process_iter(['pid', 'name']):
+        try:
+            proc_name = proc.info['name'].lower()
+            if proc_name in [e.lower() for e in expected]:
+                proc.terminate()  # Graceful termination
+                closed_count += 1
+        except psutil.NoSuchProcess:
+            pass
+        except psutil.AccessDenied:
+            errors.append(f"Access denied for {proc.info['name']}")
+        except Exception as e:
+            errors.append(str(e))
+    
+    if closed_count > 0:
+        return f"✓ Closed {app_name}! ({closed_count} process{'es' if closed_count > 1 else ''} terminated)"
+    elif errors:
+        return f"❌ Could not close {app_name}: {', '.join(errors)}"
+    else:
+        return f"⚠️ {app_name} is not running, nothing to close."
+
+
+@tool("open_application", "Opens an application or file. If the app is already running, it will tell you so.")
 def open_application(app_name: str) -> str:
     """
-    Opens an application, file, or URI.
+    Opens an application, file, or URI. Checks if already running first.
     
     Args:
         app_name: The name of the app, path to a file, or command to run
@@ -42,22 +135,48 @@ def open_application(app_name: str) -> str:
         A message indicating success or failure
     """
     try:
-        # 1. Get resolved path if it's a common app alias
+        # 1. Check if already running (for known apps)
+        app_lower = app_name.lower()
+        if app_lower in APP_PROCESS_MAP and is_app_running(app_name):
+            return f"✓ {app_name} is already running! Would you like me to open a new window or do something in it?"
+        
+        # 2. Get resolved path if it's a common app alias
         target = get_app_path(app_name)
         
-        # 2. Try os.startfile (Windows native "Run")
-        # This handles EXEs, registered apps, file associations (.txt -> Notepad), and URLs
+        # Check if target exists (for file paths)
+        is_file_path = os.path.exists(target) or target.startswith("http")
+        
+        # 3. Try os.startfile (Windows native "Run")
         try:
             os.startfile(target)
-            return f"Successfully opened: {target}"
-        except OSError:
-            # 3. Fallback to subprocess for commands that aren't files/registered (e.g. cmd flags)
-            # Use shell=True to allow searching system PATH
-            subprocess.Popen(target, shell=True)
-            return f"Attempted to run command: {target}"
+            # Give it a moment to start
+            time.sleep(0.8)
+            
+            # Verify: For known apps, check if process appeared
+            if PSUTIL_AVAILABLE and not is_file_path:
+                expected = APP_PROCESS_MAP.get(app_lower, [])
+                if expected:
+                    if is_app_running(app_name):
+                        return f"✓ Opened {app_name} successfully! What would you like to do next?"
+                    else:
+                        return f"⚠️ Tried to open {app_name}, but couldn't verify it started. It might still be loading, or the path may be wrong."
+            
+            return f"✓ Opened: {target}"
+            
+        except OSError as e:
+            # 4. Fallback to subprocess for commands that aren't files/registered
+            try:
+                result = subprocess.Popen(target, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                time.sleep(0.5)
+                if result.poll() is None or result.returncode == 0:
+                    return f"✓ Running command: {target}"
+                else:
+                    return f"❌ Command failed: {target}"
+            except Exception as sub_e:
+                return f"❌ Could not open '{app_name}': {str(e)}"
             
     except Exception as e:
-        return f"Error opening '{app_name}': {str(e)}. Try exact path or 'locate' it first."
+        return f"❌ Error opening '{app_name}': {str(e)}. Try the exact path or 'locate' it first."
 
 
 @tool("type_text", "Types text using the keyboard. Useful for entering messages into opened applications.")
@@ -76,7 +195,7 @@ def type_text(text: str, interval: float = 0.05) -> str:
         return "Error: pyautogui is not installed. Run: pip install pyautogui"
     
     try:
-        # Give user time to switch focus if running manually, but for JARVIS
+        # Give user time to switch focus if running manually, but for BRO
         # we usually open an app first. Add small safety delay.
         time.sleep(1) 
         

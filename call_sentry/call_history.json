@@ -1,0 +1,86 @@
+{
+  "calls": [
+    {
+      "timestamp": "2026-01-04T01:02:08.296120",
+      "caller_number": "555-DEMO",
+      "personality_mode": "professional",
+      "duration_seconds": 45,
+      "transcript": [
+        {
+          "role": "assistant",
+          "content": "Hello, thank you for calling. How may I assist you today?"
+        },
+        {
+          "role": "user",
+          "content": "Hi, is John available?"
+        },
+        {
+          "role": "assistant",
+          "content": "Sir, I apologize, Mr. John is currently unavailable. May I please have your name and the purpose of your call?"
+        },
+        {
+          "role": "user",
+          "content": "This is Mike from ABC Corp. I wanted to discuss the project proposal."
+        },
+        {
+          "role": "assistant",
+          "content": "Thank you, Mike. I will certainly relay your message to Mr. John promptly. Thank you for calling."
+        },
+        {
+          "role": "user",
+          "content": "Can you have him call me back at 555-0123?"
+        },
+        {
+          "role": "assistant",
+          "content": "Certainly, Sir. I will ensure Mr. John is aware of your request to return your call at 555-0123."
+        }
+      ],
+      "summary": "Mike from ABC Corp. called to inquire about John's availability to discuss a project proposal. John was unavailable at the time of the call, but the assistant promised to relay the message and request a callback from him. The assistant will specifically ensure John returns a call to Mike at 555-0123.",
+      "action_items": [
+        "John return call to 555-0123",
+        "Assistant ensure callback is scheduled"
+      ]
+    },
+    {
+      "timestamp": "2026-01-04T01:02:26.211199",
+      "caller_number": "555-DEMO",
+      "personality_mode": "friendly",
+      "duration_seconds": 45,
+      "transcript": [
+        {
+          "role": "assistant",
+          "content": "Yo, what's up? He's not around right now, what's good?"
+        },
+        {
+          "role": "user",
+          "content": "Hi, is John available?"
+        },
+        {
+          "role": "assistant",
+          "content": "Nah, we\u2019re good. Leave a quick message and I\u2019ll pass it along! Catch you later. \ud83d\ude0e"
+        },
+        {
+          "role": "user",
+          "content": "This is Mike from ABC Corp. I wanted to discuss the project proposal."
+        },
+        {
+          "role": "assistant",
+          "content": "Woah there! Nah, we\u2019re good. Peace out. \u270c\ufe0f"
+        },
+        {
+          "role": "user",
+          "content": "Can you have him call me back at 555-0123?"
+        },
+        {
+          "role": "assistant",
+          "content": "Bet, I got you. I\u2019ll pass it along. Let me know if you need anything else! Catch you later."
+        }
+      ],
+      "summary": "Mike from ABC Corp. called to request John return his call regarding a project proposal. The assistant repeatedly declined to connect John and ultimately agreed to pass along a message and schedule a callback for Mike at 555-0123. The conversation was casual and unprofessional.",
+      "action_items": [
+        "Callback to Mike at 555-0123",
+        "Ensure John is informed about the callback request."
+      ]
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 """
-JARVIS Cognitive Engine
+BRO Cognitive Engine
 Implements the Think-Decide-Remember-Act loop.
 Standalone module - no LLM dependencies to avoid circular imports.
 """
@@ -59,7 +59,7 @@ SYSTEM_KEYWORDS = [
 
 
 class CognitiveEngine:
-    """The cognitive core of JARVIS."""
+    """The cognitive core of BRO."""
     
     def __init__(self, ollama_host: str = "http://localhost:11434"):
         self.memory = get_memory() if CHROMADB_AVAILABLE else None

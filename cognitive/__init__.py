@@ -1,5 +1,5 @@
 """
-JARVIS Cognitive Package
+BRO Cognitive Package
 Provides the Think-Decide-Remember-Act loop.
 """
 
