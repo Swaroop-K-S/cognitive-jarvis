@@ -1,0 +1,29 @@
+# BRO Calendar Events
+
+
+[[events]]
+id = "08a08a19"
+title = "Team Meeting"
+start = "2026-01-04T15:00:00"
+end = "2026-01-04T16:00:00"
+description = ""
+location = ""
+recurring = ""
+
+[[events]]
+id = "4df50952"
+title = "Gym"
+start = "2026-01-05T06:00:00"
+end = "2026-01-05T07:30:00"
+description = ""
+location = ""
+recurring = ""
+
+[[events]]
+id = "4eb37cd7"
+title = "Weekly Review"
+start = "2026-01-09T10:00:00"
+end = "2026-01-09T11:00:00"
+description = ""
+location = ""
+recurring = "weekly"

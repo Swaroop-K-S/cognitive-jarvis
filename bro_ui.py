@@ -75,6 +75,7 @@ class BROApp(ctk.CTk):
         nav_items = [
             ("💬 Chat", "chat"),
             ("📊 Dashboard", "dashboard"),
+            ("📅 Calendar", "calendar"),
             ("🛒 Shopping", "shopping"),
             ("📱 Phone", "phone"),
             ("📝 Notes", "notes"),
@@ -120,6 +121,7 @@ class BROApp(ctk.CTk):
         # Create all pages
         self.create_chat_page()
         self.create_dashboard_page()
+        self.create_calendar_page()
         self.create_shopping_page()
         self.create_phone_page()
         self.create_notes_page()
@@ -274,6 +276,97 @@ class BROApp(ctk.CTk):
         value_label.pack(pady=(0, 15))
         
         return value_label
+    
+    def create_calendar_page(self):
+        """Create the calendar page."""
+        page = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.pages["calendar"] = page
+        
+        header = ctk.CTkLabel(
+            page,
+            text="📅 Calendar",
+            font=ctk.CTkFont(size=24, weight="bold")
+        )
+        header.pack(pady=(0, 10))
+        
+        # Quick add event
+        add_frame = ctk.CTkFrame(page, fg_color="transparent")
+        add_frame.pack(fill="x", pady=10)
+        
+        self.event_title = ctk.CTkEntry(
+            add_frame,
+            placeholder_text="Event title",
+            width=200,
+            height=35
+        )
+        self.event_title.pack(side="left", padx=5)
+        
+        self.event_time = ctk.CTkEntry(
+            add_frame,
+            placeholder_text="When (e.g., tomorrow 3pm)",
+            width=200,
+            height=35
+        )
+        self.event_time.pack(side="left", padx=5)
+        
+        ctk.CTkButton(
+            add_frame,
+            text="Add Event",
+            width=100,
+            command=self.add_calendar_event
+        ).pack(side="left", padx=5)
+        
+        # View buttons
+        view_frame = ctk.CTkFrame(page, fg_color="transparent")
+        view_frame.pack(fill="x", pady=10)
+        
+        ctk.CTkButton(view_frame, text="Today", width=80, command=self.show_today).pack(side="left", padx=5)
+        ctk.CTkButton(view_frame, text="Tomorrow", width=80, command=self.show_tomorrow).pack(side="left", padx=5)
+        ctk.CTkButton(view_frame, text="Week", width=80, command=self.show_week).pack(side="left", padx=5)
+        ctk.CTkButton(view_frame, text="Upcoming", width=80, command=self.show_upcoming).pack(side="left", padx=5)
+        
+        # Calendar display
+        self.calendar_display = ctk.CTkTextbox(page, height=400, font=ctk.CTkFont(size=12))
+        self.calendar_display.pack(fill="both", expand=True, pady=10)
+        
+        # Load today's events
+        self.after(200, self.show_today)
+    
+    def add_calendar_event(self):
+        """Add a new calendar event."""
+        title = self.event_title.get().strip()
+        when = self.event_time.get().strip()
+        
+        if title and when:
+            from tools.calendar import add_event
+            result = add_event(title, when)
+            self.event_title.delete(0, "end")
+            self.event_time.delete(0, "end")
+            self.show_today()
+    
+    def show_today(self):
+        """Show today's events."""
+        from tools.calendar import today
+        self.calendar_display.delete("0.0", "end")
+        self.calendar_display.insert("0.0", today())
+    
+    def show_tomorrow(self):
+        """Show tomorrow's events."""
+        from tools.calendar import tomorrow
+        self.calendar_display.delete("0.0", "end")
+        self.calendar_display.insert("0.0", tomorrow())
+    
+    def show_week(self):
+        """Show this week's events."""
+        from tools.calendar import week
+        self.calendar_display.delete("0.0", "end")
+        self.calendar_display.insert("0.0", week())
+    
+    def show_upcoming(self):
+        """Show upcoming events."""
+        from tools.calendar import upcoming
+        self.calendar_display.delete("0.0", "end")
+        self.calendar_display.insert("0.0", upcoming(7))
     
     def create_shopping_page(self):
         """Create the shopping page."""

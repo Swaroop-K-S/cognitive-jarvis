@@ -25,3 +25,10 @@ content = "Test note from test suite"
 tags = ""
 created = "2026-01-04T22:04:01.905167"
 pinned = false
+
+[[items]]
+id = 5
+content = "make update on bro"
+tags = ""
+created = "2026-01-04T22:17:11.148871"
+pinned = false
