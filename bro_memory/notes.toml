@@ -4,3 +4,10 @@ content = "Buy groceries tomorrow"
 tags = ""
 created = "2026-01-04T21:10:13.738402"
 pinned = false
+
+[[items]]
+id = 2
+content = "Test note from test suite"
+tags = ""
+created = "2026-01-04T21:53:52.588348"
+pinned = false

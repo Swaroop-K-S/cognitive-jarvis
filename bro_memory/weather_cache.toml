@@ -1,0 +1,16 @@
+# Weather cache - Updated: 2026-01-04T21:58:57.631658
+
+[bangalore]
+location = "Bengaluru"
+country = "India"
+lat = 12.97194
+lon = 77.59369
+temp_c = 18.5
+feels_like_c = 18.5
+humidity = 68
+wind_kmph = 5.9
+wind_dir = "E"
+condition = "Partly cloudy"
+weather_code = 2
+from_cache = False
+cached_at = "2026-01-04T21:58:57.631658"

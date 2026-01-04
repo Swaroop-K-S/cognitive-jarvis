@@ -2,3 +2,8 @@
 fact = "I prefer dark mode"
 category = "general"
 remembered_at = "2026-01-04T12:27:16.534727"
+
+[[items]]
+fact = "Test fact for BRO"
+category = "general"
+remembered_at = "2026-01-04T21:53:52.588348"
