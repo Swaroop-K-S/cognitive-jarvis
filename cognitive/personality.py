@@ -56,13 +56,72 @@ BRO_PERSONALITY = """You are BRO, an AI best friend - like a supportive brother 
 
 
 # =============================================================================
-# MEMORY SYSTEM
+# MEMORY SYSTEM (TOML Format)
 # =============================================================================
+
+# Try to import tomllib (Python 3.11+) or tomli
+try:
+    import tomllib  # Python 3.11+
+except ImportError:
+    try:
+        import tomli as tomllib  # Fallback for older Python
+    except ImportError:
+        tomllib = None
+
+# For writing TOML
+try:
+    import tomli_w
+    TOML_WRITE_AVAILABLE = True
+except ImportError:
+    TOML_WRITE_AVAILABLE = False
+
+
+def _toml_dumps(data: dict) -> str:
+    """Convert dict to TOML string manually if tomli_w not available."""
+    if TOML_WRITE_AVAILABLE:
+        return tomli_w.dumps(data)
+    
+    # Simple manual TOML serialization
+    lines = []
+    
+    def write_value(v):
+        if isinstance(v, str):
+            return f'"{v}"'
+        elif isinstance(v, bool):
+            return "true" if v else "false"
+        elif isinstance(v, (int, float)):
+            return str(v)
+        elif isinstance(v, list):
+            items = [write_value(i) for i in v]
+            return f"[{', '.join(items)}]"
+        elif isinstance(v, dict):
+            return "{" + ", ".join(f'{k} = {write_value(val)}' for k, val in v.items()) + "}"
+        else:
+            return f'"{str(v)}"'
+    
+    for key, value in data.items():
+        if isinstance(value, dict) and not any(isinstance(v, dict) for v in value.values()):
+            lines.append(f"[{key}]")
+            for k, v in value.items():
+                lines.append(f"{k} = {write_value(v)}")
+            lines.append("")
+        elif isinstance(value, list) and all(isinstance(i, dict) for i in value):
+            for item in value:
+                lines.append(f"[[{key}]]")
+                for k, v in item.items():
+                    lines.append(f"{k} = {write_value(v)}")
+                lines.append("")
+        else:
+            lines.append(f"{key} = {write_value(value)}")
+    
+    return "\n".join(lines)
+
 
 class BROMemory:
     """
     Persistent memory system for BRO.
     Remembers user preferences, facts, and conversation history.
+    Uses TOML format for human-readable storage.
     """
     
     def __init__(self, memory_path: str = None):
@@ -75,15 +134,15 @@ class BROMemory:
         self.memory_path = Path(memory_path)
         self.memory_path.mkdir(exist_ok=True)
         
-        # Memory files
-        self.user_file = self.memory_path / "user_profile.json"
-        self.facts_file = self.memory_path / "facts.json"
-        self.preferences_file = self.memory_path / "preferences.json"
-        self.history_file = self.memory_path / "conversation_history.json"
-        self.commands_file = self.memory_path / "custom_commands.json"
+        # Memory files (TOML format)
+        self.user_file = self.memory_path / "user_profile.toml"
+        self.facts_file = self.memory_path / "facts.toml"
+        self.preferences_file = self.memory_path / "preferences.toml"
+        self.history_file = self.memory_path / "conversation_history.toml"
+        self.commands_file = self.memory_path / "custom_commands.toml"
         
         # Load memory
-        self.user_profile = self._load_json(self.user_file, {
+        self.user_profile = self._load_toml(self.user_file, {
             "name": "",
             "nickname": "",
             "birthday": "",
@@ -92,44 +151,55 @@ class BROMemory:
             "mood_history": []
         })
         
-        self.facts = self._load_json(self.facts_file, [])
-        self.preferences = self._load_json(self.preferences_file, {})
-        self.history = self._load_json(self.history_file, [])
-        self.custom_commands = self._load_json(self.commands_file, {})
+        self.facts = self._load_toml(self.facts_file, {"items": []}).get("items", [])
+        self.preferences = self._load_toml(self.preferences_file, {})
+        self.history = self._load_toml(self.history_file, {"conversations": []}).get("conversations", [])
+        self.custom_commands = self._load_toml(self.commands_file, {})
     
-    def _load_json(self, path: Path, default) -> any:
-        """Load JSON file or return default."""
+    def _load_toml(self, path: Path, default: dict) -> dict:
+        """Load TOML file or return default."""
         try:
             if path.exists():
-                with open(path, "r", encoding="utf-8") as f:
-                    return json.load(f)
-        except:
+                if tomllib:
+                    with open(path, "rb") as f:
+                        return tomllib.load(f)
+                else:
+                    # Fallback: try to load as JSON if TOML not available
+                    with open(path, "r", encoding="utf-8") as f:
+                        return json.load(f)
+        except Exception:
             pass
-        return default
+        return default.copy()
     
-    def _save_json(self, path: Path, data: any):
-        """Save data to JSON file."""
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+    def _save_toml(self, path: Path, data: dict):
+        """Save data to TOML file."""
+        try:
+            toml_str = _toml_dumps(data)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(toml_str)
+        except Exception as e:
+            # Fallback to JSON if TOML fails
+            with open(path.with_suffix(".json"), "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
     
     # User Profile
     def set_user_name(self, name: str):
         """Set user's name."""
         self.user_profile["name"] = name
-        self._save_json(self.user_file, self.user_profile)
+        self._save_toml(self.user_file, self.user_profile)
         return f"Got it! I'll call you {name} 😊"
     
     def set_nickname(self, nickname: str):
         """Set user's nickname."""
         self.user_profile["nickname"] = nickname
-        self._save_json(self.user_file, self.user_profile)
+        self._save_toml(self.user_file, self.user_profile)
         return f"Alright, {nickname}! 👋"
     
     def add_interest(self, interest: str):
         """Add an interest."""
         if interest not in self.user_profile["interests"]:
             self.user_profile["interests"].append(interest)
-            self._save_json(self.user_file, self.user_profile)
+            self._save_toml(self.user_file, self.user_profile)
         return f"Cool! I didn't know you were into {interest}! Tell me more sometime 🎉"
     
     def add_goal(self, goal: str):
@@ -139,7 +209,7 @@ class BROMemory:
             "added": datetime.now().isoformat(),
             "completed": False
         })
-        self._save_json(self.user_file, self.user_profile)
+        self._save_toml(self.user_file, self.user_profile)
         return f"Added to your goals: {goal}\nI'll help you crush it! 💪"
     
     def get_user_name(self) -> str:
@@ -154,7 +224,7 @@ class BROMemory:
             "category": category,
             "remembered_at": datetime.now().isoformat()
         })
-        self._save_json(self.facts_file, self.facts)
+        self._save_toml(self.facts_file, {"items": self.facts})
         return f"I'll remember that! 📝"
     
     def get_facts(self, limit: int = 10) -> List[Dict]:
@@ -165,7 +235,7 @@ class BROMemory:
     def set_preference(self, key: str, value: str):
         """Set a preference."""
         self.preferences[key] = value
-        self._save_json(self.preferences_file, self.preferences)
+        self._save_toml(self.preferences_file, self.preferences)
         return f"Noted! Your {key} preference is now {value} ✓"
     
     def get_preference(self, key: str, default: str = None) -> str:
@@ -182,7 +252,7 @@ class BROMemory:
         })
         # Keep last 100 conversations
         self.history = self.history[-100:]
-        self._save_json(self.history_file, self.history)
+        self._save_toml(self.history_file, {"conversations": self.history})
     
     def get_recent_history(self, count: int = 5) -> List[Dict]:
         """Get recent conversation history."""
@@ -196,7 +266,7 @@ class BROMemory:
             "response": response,
             "added": datetime.now().isoformat()
         }
-        self._save_json(self.commands_file, self.custom_commands)
+        self._save_toml(self.commands_file, self.custom_commands)
         return f"Command added! Say '{trigger}' and I'll {action} 🎯"
     
     def get_command(self, trigger: str) -> Optional[Dict]:
@@ -295,7 +365,7 @@ class BRO:
         # Initialize default commands if empty
         if not self.memory.custom_commands:
             self.memory.custom_commands = DEFAULT_COMMANDS.copy()
-            self.memory._save_json(self.memory.commands_file, self.memory.custom_commands)
+            self.memory._save_toml(self.memory.commands_file, self.memory.custom_commands)
     
     def get_system_prompt(self) -> str:
         """Get the full system prompt with context."""
