@@ -1,15 +1,18 @@
-# JARVIS AI Assistant Dependencies
+# BRO AI Assistant Dependencies
 # ================================
 
 # =============================================================================
-# CORE AI (Online/Offline)
+# CORE AI (Ollama - Local)
 # =============================================================================
-# Gemini API (Online Mode)
-google-generativeai>=0.8.0
+# Ollama runs models locally - install from https://ollama.com
+# Required models: ollama pull gemma3 && ollama pull llava:7b
 
-# Memory System (ChromaDB runs on CPU)
+# Memory System
 chromadb>=0.4.0
 sentence-transformers>=2.2.0
+
+# TOML Support (Python 3.11+ has tomllib built-in)
+tomli-w>=1.0.0  # For writing TOML files
 
 # =============================================================================
 # PC CONTROL & AUTOMATION
@@ -27,29 +30,31 @@ pyttsx3>=2.90
 SpeechRecognition>=3.10.0
 pyaudio>=0.2.13
 
-# Wake Word (Offline) - NEW
+# Wake Word (Offline)
 vosk>=0.3.45
 
-# Enhanced TTS (Optional - works without)
-# edge-tts>=6.1.0  # High-quality Microsoft voices (free, no API key)
-
 # =============================================================================
-# VISION SYSTEM - NEW
+# VISION SYSTEM
 # =============================================================================
-# Uses Ollama + LLaVA (installed separately via: ollama pull llava)
 Pillow>=10.0.0
+opencv-python>=4.8.0
 
-# OCR Fallback (Optional - requires Tesseract installed)
-# pytesseract>=0.3.10
+# OCR (Text Reading) - Highly Recommended
+easyocr>=1.7.0
 
 # =============================================================================
-# WEB AUTOMATION - NEW
+# ANDROID PHONE CONTROL
+# =============================================================================
+pure-python-adb>=0.3.0
+
+# =============================================================================
+# WEB AUTOMATION
 # =============================================================================
 playwright>=1.40.0
 # After install, run: playwright install chromium
 
 # =============================================================================
-# FILE CONVERSION - NEW
+# FILE CONVERSION
 # =============================================================================
 PyPDF2>=3.0.0
 python-pptx>=0.6.21
@@ -62,11 +67,15 @@ python-dotenv>=1.0.0
 colorama>=0.4.6
 
 # =============================================================================
-# CALL SENTRY (Phone Screening) - NEW
+# CALL SENTRY (Phone Screening) - Optional
 # =============================================================================
 fastapi>=0.100.0
 uvicorn>=0.23.0
-twilio>=8.0.0
-# websockets>=11.0  # For real-time audio streaming
+# twilio>=8.0.0  # Only if using Twilio for calls
 
-
+# =============================================================================
+# OPTIONAL - Enhanced Features
+# =============================================================================
+# google-generativeai>=0.8.0  # Gemini API (cloud fallback)
+# edge-tts>=6.1.0  # High-quality Microsoft voices
+# pytesseract>=0.3.10  # Alternative OCR (requires Tesseract)
