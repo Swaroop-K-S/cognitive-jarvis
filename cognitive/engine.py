@@ -106,8 +106,10 @@ class CognitiveEngine:
                 
                 action = action_map.get(intent, CognitiveAction.CHAT)
                 return action, f"🧠 Semantic: {reasoning}"
+        except ImportError:
+            pass  # sentence-transformers not installed, expected fallback
         except Exception as e:
-            pass  # Fall back to keywords
+            print(f"    ⚠️ Semantic router error: {e}")  # Log unexpected errors
         
         # Fallback: Keyword-based routing
         return self._keyword_decide(user_input)

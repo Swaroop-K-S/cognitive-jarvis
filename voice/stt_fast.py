@@ -222,6 +222,22 @@ class WhisperSTT:
             
             print(f"🎤 Listening (local Whisper)...")
             
+            # Dynamic silence threshold: sample ambient noise for 0.5s
+            calibration_samples = []
+            calibration_start = time.time()
+            while time.time() - calibration_start < 0.3:
+                try:
+                    data = stream.read(CHUNK_SIZE, exception_on_overflow=False)
+                    chunk = np.frombuffer(data, dtype=np.int16).astype(np.float32) / 32768.0
+                    calibration_samples.append(np.abs(chunk).mean())
+                except:
+                    pass
+            
+            if calibration_samples:
+                # Set threshold at 2x the ambient noise level
+                ambient_level = np.mean(calibration_samples)
+                silence_threshold = max(silence_threshold, ambient_level * 2.0)
+            
             frames = []
             speech_started = False
             silence_start = None
