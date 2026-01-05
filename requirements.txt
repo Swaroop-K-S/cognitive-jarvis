@@ -33,6 +33,11 @@ pyaudio>=0.2.13
 # Wake Word (Offline)
 vosk>=0.3.45
 
+# Local STT - Faster Whisper (5x faster than cloud, 100% private)
+faster-whisper>=0.10.0
+# Optional: torch for Silero VAD (voice activity detection)
+# torch>=2.0.0
+
 # =============================================================================
 # VISION SYSTEM
 # =============================================================================
@@ -79,3 +84,12 @@ uvicorn>=0.23.0
 # google-generativeai>=0.8.0  # Gemini API (cloud fallback)
 # edge-tts>=6.1.0  # High-quality Microsoft voices
 # pytesseract>=0.3.10  # Alternative OCR (requires Tesseract)
+
+# =============================================================================
+# UNIVERSAL APP LAUNCHER - Enhanced App Discovery (Optional but Recommended)
+# =============================================================================
+# These packages enable better discovery and launching of installed apps:
+winapps>=0.3.0  # Scans Windows registry for installed apps
+AppOpener>=1.7  # Finds and opens apps by name
+pywin32>=306    # Windows API for reading Start Menu shortcuts
+

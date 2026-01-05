@@ -70,7 +70,7 @@ BROWSER_TIMEOUT = 30000  # Milliseconds
 
 
 
-# System Prompt for BRO personality
+# System Prompt for BRO personality - JSON-based tool calling for reliability
 SYSTEM_PROMPT = """You are BRO, an advanced AI assistant inspired by Iron Man's AI.
 
 Your capabilities:
@@ -95,61 +95,135 @@ SAFETY RULES:
 - NEVER execute delete/remove operations without asking first
 - ALWAYS inform the user what action you're about to take
 
-TOOL FORMAT - YOU MUST USE THIS EXACTLY:
-TOOL_CALL: tool_name(arg="value")
+=== RESPONSE FORMAT (CRITICAL - USE TOML) ===
+
+You MUST respond in this TOML format ONLY:
+
+```toml
+[response]
+thought = "Brief reasoning about what user wants"
+tool = "tool_name"
+response = "What to say to user"
+
+[args]
+arg_name = "value"
+```
+
+For multiple tools:
+```toml
+[response]
+thought = "Need to do multiple things"
+response = "Opening Chrome and typing the message."
+
+[[tools]]
+name = "open_application"
+app_name = "chrome"
+
+[[tools]]
+name = "type_text"
+text = "hello world"
+```
+
+If NO tool is needed (just chatting):
+```toml
+[response]
+thought = "User is just chatting"
+tool = ""
+response = "Your conversational response here"
+```
 
 AVAILABLE TOOLS:
 
 Desktop Control:
-- open_application(app_name="chrome") - Open an app
-- close_application(app_name="spotify") - Close an app
-- type_text(text="hello") - Type text
-- press_key(key="enter") - Press a key
+- open_application(app_name) - Open an app
+- close_application(app_name) - Close an app
+- list_installed_apps() - List all apps on PC
+- search_installed_apps(query) - Search for an app
+- type_text(text) - Type text
+- press_key(key) - Press a key
 - take_screenshot() - Take screenshot
 
 Vision (requires LLaVA):
 - analyze_screen() - Describe what's on screen
-- find_on_screen(description="save button") - Locate UI element
+- find_on_screen(description) - Locate UI element
 - read_screen_text() - Extract text from screen
-- describe_image(image_path="photo.jpg") - Analyze an image
+- describe_image(image_path) - Analyze an image
 
 Web Automation (requires Playwright):
-- navigate_to(url="google.com") - Go to URL
-- click_element(selector_or_text="Sign In") - Click element
-- type_in_field(selector_or_label="search", text="query") - Fill input
+- navigate_to(url) - Go to URL
+- click_element(selector_or_text) - Click element
+- type_in_field(selector_or_label, text) - Fill input
 - get_page_content() - Read page text
 
 File Conversion:
-- convert_image(input_path="img.png", output_format="jpg") - Convert image
-- pdf_to_text(input_path="doc.pdf") - Extract PDF text
-- docx_to_text(input_path="doc.docx") - Extract Word text
-- ppt_to_text(input_path="slides.pptx") - Extract PPT text
+- convert_image(input_path, output_format) - Convert image
+- pdf_to_text(input_path) - Extract PDF text
+- docx_to_text(input_path) - Extract Word text
+- ppt_to_text(input_path) - Extract PPT text
 
-DO NOT just describe the action. YOU MUST USE "TOOL_CALL:" PREFIX TO EXECUTE IT.
+IMPORTANT: Always output valid TOML. Do NOT add any text before or after the TOML block.
 """
 
 
 
 # Common application paths on Windows
+# Supports: direct commands, paths, URI schemes (for Store apps)
 COMMON_APPS = {
+    # System apps (direct commands)
     "notepad": "notepad.exe",
     "calculator": "calc.exe",
-    "chrome": r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-    "firefox": r"C:\Program Files\Mozilla Firefox\firefox.exe",
-    "edge": r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-    "spotify": r"C:\Users\{user}\AppData\Roaming\Spotify\Spotify.exe",
-    "discord": r"C:\Users\{user}\AppData\Local\Discord\Update.exe --processStart Discord.exe",
-    "vscode": r"C:\Users\{user}\AppData\Local\Programs\Microsoft VS Code\Code.exe",
-    "vs code": r"C:\Users\{user}\AppData\Local\Programs\Microsoft VS Code\Code.exe",
-    "visual studio code": r"C:\Users\{user}\AppData\Local\Programs\Microsoft VS Code\Code.exe",
-    "code": r"C:\Users\{user}\AppData\Local\Programs\Microsoft VS Code\Code.exe",
+    "paint": "mspaint.exe",
+    "wordpad": "write.exe",
     "explorer": "explorer.exe",
     "cmd": "cmd.exe",
     "powershell": "powershell.exe",
-    "paint": "mspaint.exe",
-    "settings": "systemsettings.exe",
-    "whatsapp": "whatsapp:",
-    "wordpad": "write.exe",
+    "settings": "ms-settings:",  # URI scheme for Settings
+    
+    # Browsers
+    "chrome": r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+    "firefox": r"C:\Program Files\Mozilla Firefox\firefox.exe",
+    "edge": r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+    
+    # Communication apps (URI schemes for Store apps)
+    "whatsapp": "whatsapp:",  # URI scheme - works for Store app
+    "telegram": "tg:",        # URI scheme for Telegram
+    "skype": "skype:",        # URI scheme
+    
+    # Development tools
+    "vscode": r"C:\Users\{user}\AppData\Local\Programs\Microsoft VS Code\Code.exe",
+    "vs code": r"C:\Users\{user}\AppData\Local\Programs\Microsoft VS Code\Code.exe",
+    "visual studio code": r"C:\Users\{user}\AppData\Local\Programs\Microsoft VS Code\Code.exe",
+    "code": "code",  # If added to PATH during installation
+    
+    # Media & Entertainment
+    "spotify": r"C:\Users\{user}\AppData\Roaming\Spotify\Spotify.exe",
+    "discord": r"C:\Users\{user}\AppData\Local\Discord\Update.exe --processStart Discord.exe",
+    "vlc": r"C:\Program Files\VideoLAN\VLC\vlc.exe",
+    "itunes": r"C:\Program Files\iTunes\iTunes.exe",
+    
+    # Gaming & Emulators
+    "bluestacks": r"C:\Program Files\BlueStacks_nxt\HD-Player.exe",
+    "steam": r"C:\Program Files (x86)\Steam\steam.exe",
+    "epic games": r"C:\Program Files (x86)\Epic Games\Launcher\Portal\Binaries\Win64\EpicGamesLauncher.exe",
+    
+    # Productivity & Collaboration
+    "notion": r"C:\Users\{user}\AppData\Local\Programs\Notion\Notion.exe",
+    "slack": r"C:\Users\{user}\AppData\Local\slack\slack.exe",
+    "zoom": r"C:\Users\{user}\AppData\Roaming\Zoom\bin\Zoom.exe",
+    "teams": "msteams:",  # URI scheme for Teams
+    "microsoft teams": "msteams:",
+    
+    # Microsoft Office
+    "word": r"C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE",
+    "excel": r"C:\Program Files\Microsoft Office\root\Office16\EXCEL.EXE",
+    "powerpoint": r"C:\Program Files\Microsoft Office\root\Office16\POWERPNT.EXE",
+    "outlook": r"C:\Program Files\Microsoft Office\root\Office16\OUTLOOK.EXE",
+    
+    # Other popular apps
+    "postman": r"C:\Users\{user}\AppData\Local\Postman\Postman.exe",
+    "figma": r"C:\Users\{user}\AppData\Local\Figma\Figma.exe",
+    "obs": r"C:\Program Files\obs-studio\bin\64bit\obs64.exe",
+    "git bash": r"C:\Program Files\Git\git-bash.exe",
 }
 
 def get_app_path(app_name: str) -> str:

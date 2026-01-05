@@ -523,15 +523,118 @@ class AndroidController:
         return self.press_key("back")
     
     # =========================================================================
-    # ADVANCED: VISION-BASED INTERACTION
+    # ADVANCED: SMART ELEMENT INTERACTION (XML-first, Vision fallback)
     # =========================================================================
+    
+    def _get_ui_hierarchy(self) -> str:
+        """
+        Get the UI hierarchy XML using UIAutomator dump.
+        This is MUCH faster than vision (~0.3s vs ~3-5s).
+        """
+        if not self.device:
+            return ""
+        
+        try:
+            # Dump UI hierarchy to stdout (faster than file)
+            result = self.device.shell("uiautomator dump /dev/tty")
+            # Extract XML content
+            if "<?xml" in result:
+                start = result.find("<?xml")
+                return result[start:].strip()
+            return result
+        except Exception as e:
+            print(f"[!] UIAutomator dump failed: {e}")
+            return ""
+    
+    def _find_bounds_in_xml(self, xml_content: str, target_text: str) -> Optional[Tuple[int, int]]:
+        """
+        Find element bounds in UI hierarchy XML.
+        
+        Args:
+            xml_content: UIAutomator XML dump
+            target_text: Text to find (case-insensitive partial match)
+            
+        Returns:
+            (x, y) center coordinates or None if not found
+        """
+        import re
+        
+        target_lower = target_text.lower()
+        
+        # Pattern to find elements with text/content-desc and their bounds
+        # Example: text="Settings" bounds="[0,100][200,200]"
+        pattern = r'(?:text|content-desc)="([^"]*)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"'
+        
+        for match in re.finditer(pattern, xml_content, re.IGNORECASE):
+            element_text = match.group(1).lower()
+            if target_lower in element_text or element_text in target_lower:
+                x1, y1 = int(match.group(2)), int(match.group(3))
+                x2, y2 = int(match.group(4)), int(match.group(5))
+                # Return center of element
+                center_x = (x1 + x2) // 2
+                center_y = (y1 + y2) // 2
+                return (center_x, center_y)
+        
+        # Also try resource-id matching
+        pattern_id = r'resource-id="[^"]*([^"/]+)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"'
+        for match in re.finditer(pattern_id, xml_content, re.IGNORECASE):
+            element_id = match.group(1).lower()
+            if target_lower in element_id:
+                x1, y1 = int(match.group(2)), int(match.group(3))
+                x2, y2 = int(match.group(4)), int(match.group(5))
+                center_x = (x1 + x2) // 2
+                center_y = (y1 + y2) // 2
+                return (center_x, center_y)
+        
+        return None
+    
+    def smart_tap(self, target: str) -> bool:
+        """
+        Smart element tap - uses XML first (fast), vision fallback (slow).
+        
+        This is ~6x faster than pure vision for most cases.
+        
+        Args:
+            target: Text/description of element to tap
+            
+        Returns:
+            True if tap succeeded
+        """
+        # =====================================================================
+        # LAYER 1: XML DUMP (Fast - ~0.3s)
+        # =====================================================================
+        print(f"[*] Looking for: '{target}'")
+        xml = self._get_ui_hierarchy()
+        
+        if xml:
+            coords = self._find_bounds_in_xml(xml, target)
+            if coords:
+                x, y = coords
+                print(f"[+] Found via XML at ({x}, {y})")
+                return self.tap(x, y)
+            print(f"[*] Not in XML, trying vision...")
+        
+        # =====================================================================
+        # LAYER 2: VISION MODEL (Slow - ~3-5s, but finds anything)
+        # =====================================================================
+        return self._find_and_tap_vision(target)
     
     def find_and_tap(self, description: str) -> bool:
         """
-        Use AI vision to find an element and tap it.
+        Find an element and tap it. Uses smart detection (XML + Vision).
         
         Args:
             description: What to look for (e.g., "send button", "search box")
+        """
+        return self.smart_tap(description)
+    
+    def _find_and_tap_vision(self, description: str) -> bool:
+        """
+        Use AI vision model to find an element and tap it.
+        This is slower but can find any visual element.
+        
+        Args:
+            description: What to look for
         """
         import urllib.request
         import base64
@@ -576,6 +679,7 @@ If not found, reply: NOT_FOUND"""
                     parts = response.split()
                     x_idx = parts.index("TAP") + 1
                     x, y = int(parts[x_idx]), int(parts[x_idx + 1])
+                    print(f"[+] Found via Vision at ({x}, {y})")
                     return self.tap(x, y)
                 else:
                     print(f"[!] Element not found: {description}")
@@ -584,6 +688,35 @@ If not found, reply: NOT_FOUND"""
         except Exception as e:
             print(f"[!] Vision error: {e}")
             return False
+    
+    def get_screen_elements(self) -> List[dict]:
+        """
+        Get all visible elements on screen from XML hierarchy.
+        Useful for debugging or listing what's tappable.
+        
+        Returns:
+            List of elements with text and bounds
+        """
+        import re
+        xml = self._get_ui_hierarchy()
+        if not xml:
+            return []
+        
+        elements = []
+        pattern = r'(?:text|content-desc)="([^"]+)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"'
+        
+        for match in re.finditer(pattern, xml, re.IGNORECASE):
+            text = match.group(1)
+            if text.strip():
+                x1, y1 = int(match.group(2)), int(match.group(3))
+                x2, y2 = int(match.group(4)), int(match.group(5))
+                elements.append({
+                    "text": text,
+                    "bounds": (x1, y1, x2, y2),
+                    "center": ((x1+x2)//2, (y1+y2)//2)
+                })
+        
+        return elements
     
     def read_screen_text(self) -> str:
         """Read text from the current screen using AI."""

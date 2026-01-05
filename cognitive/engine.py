@@ -86,26 +86,56 @@ class CognitiveEngine:
         return self.memory.recall_text(query, n_results=3)
     
     def _think_and_decide(self, user_input: str) -> Tuple[CognitiveAction, str]:
-        """Decide action based on keywords."""
+        """
+        Decide action using semantic routing (embedding-based).
+        Falls back to keyword matching if semantic router unavailable.
+        """
+        # Try semantic routing first (more intelligent)
+        try:
+            from .semantic_router import get_semantic_router, Intent
+            router = get_semantic_router()
+            
+            if router.is_available():
+                intent, confidence, reasoning = router.route(user_input)
+                
+                # Map Intent enum to CognitiveAction
+                action_map = {
+                    Intent.REMEMBER: CognitiveAction.REMEMBER,
+                    Intent.RECALL: CognitiveAction.RECALL,
+                    Intent.ACT: CognitiveAction.ACT,
+                    Intent.CODE: CognitiveAction.CODE,
+                    Intent.CHAT: CognitiveAction.CHAT,
+                }
+                
+                action = action_map.get(intent, CognitiveAction.CHAT)
+                return action, f"🧠 Semantic: {reasoning}"
+        except Exception as e:
+            pass  # Fall back to keywords
+        
+        # Fallback: Keyword-based routing
+        return self._keyword_decide(user_input)
+    
+    def _keyword_decide(self, user_input: str) -> Tuple[CognitiveAction, str]:
+        """Legacy keyword-based decision making."""
         input_lower = user_input.lower()
         
         for kw in REMEMBER_KEYWORDS:
             if kw in input_lower:
-                return CognitiveAction.REMEMBER, f"Storage: '{kw}'"
+                return CognitiveAction.REMEMBER, f"Keyword: '{kw}'"
         
         for kw in RECALL_KEYWORDS:
             if kw in input_lower:
-                return CognitiveAction.RECALL, f"Recall: '{kw}'"
+                return CognitiveAction.RECALL, f"Keyword: '{kw}'"
         
         for kw in SYSTEM_KEYWORDS:
             if kw in input_lower:
-                return CognitiveAction.ACT, f"System: '{kw}'"
+                return CognitiveAction.ACT, f"Keyword: '{kw}'"
         
         for kw in CODE_KEYWORDS:
             if kw in input_lower:
-                return CognitiveAction.CODE, f"Code: '{kw}'"
+                return CognitiveAction.CODE, f"Keyword: '{kw}'"
         
-        return CognitiveAction.CHAT, "General chat"
+        return CognitiveAction.CHAT, "Default: chat"
     
     def execute_remember(self, user_input: str) -> str:
         if not self.is_memory_available():

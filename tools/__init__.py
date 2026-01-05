@@ -9,7 +9,8 @@ from .registry import tool, get_all_tools, execute_tool, get_tools_schema
 from .pc_control import (
     open_application, close_application, check_app_running, restart_application,
     open_file, open_folder, take_screenshot, list_processes,
-    type_text, press_key, get_system_info
+    type_text, press_key, get_system_info,
+    list_installed_apps, search_installed_apps, discover_installed_apps
 )
 
 # File Operations
@@ -50,6 +51,7 @@ __all__ = [
     "open_application", "close_application", "check_app_running", "restart_application",
     "open_file", "open_folder", "take_screenshot", "list_processes",
     "type_text", "press_key", "get_system_info",
+    "list_installed_apps", "search_installed_apps", "discover_installed_apps",
     
     # File Ops
     "read_file", "write_file", "list_directory", "search_files",

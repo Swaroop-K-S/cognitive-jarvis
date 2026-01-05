@@ -218,20 +218,37 @@ TOOL_CALL: tool_name(arg1="value1")
             return f"Error: {e}"
     
     def _extract_and_execute_tools(self, response: str) -> List[str]:
-        """Extract and execute ALL tool calls in the response."""
+        """
+        Extract and execute tool calls from the response.
+        Uses TOML parsing first (robust), falls back to regex (legacy).
+        """
         results = []
         
-        # Pattern for strict match: TOOL_CALL: name(args)
-        # We process matches sequentially
+        # =====================================================================
+        # METHOD 1: TOML PARSING (Robust - handles special characters)
+        # =====================================================================
+        try:
+            # Try to find TOML block in response
+            toml_content = self._extract_toml_block(response)
+            if toml_content:
+                parsed = self._parse_toml_response(toml_content)
+                if parsed:
+                    tool_results = self._execute_parsed_tools(parsed)
+                    if tool_results:
+                        return tool_results
+        except Exception as e:
+            print(f"    ⚠️ TOML parse failed, trying regex fallback: {e}")
         
-        # 1. Find all strict matches
+        # =====================================================================
+        # METHOD 2: REGEX FALLBACK (Legacy - for backward compatibility)
+        # =====================================================================
+        # Pattern for strict match: TOOL_CALL: name(args)
         strict_matches = list(re.finditer(r'TOOL_CALL:\s*(\w+)\(([^)]*)\)', response))
         
-        # 2. If no strict matches, try loose matches
+        # If no strict matches, try loose matches
         if not strict_matches:
             known_tools = "|".join(get_all_tools().keys())
             if known_tools:
-                # Look for known_tool_name(args)
                 loose_matches = list(re.finditer(fr'({known_tools})\s*\(([^)]*)\)', response))
                 matches = loose_matches
             else:
@@ -244,15 +261,11 @@ TOOL_CALL: tool_name(arg1="value1")
             args_str = match.group(2)
             
             args = {}
-            # Parse args: look for key="value" or key='value'
-            for m in re.finditer(r'(\w+)=["\'](.*?)["\']', args_str):
+            for m in re.finditer(r'(\w+)=["\']([^"\']*)["\']', args_str):
                 args[m.group(1)] = m.group(2)
                 
-            # If no named args found, check if it's a positional arg (simple case)
             if not args and args_str.strip():
-                # Basic cleanup of quotes
                 clean_arg = args_str.strip().strip('"\'')
-                # If tool has 1 required arg, map it
                 tool_info = get_all_tools().get(tool_name, {})
                 required = tool_info.get("required", [])
                 if len(required) == 1:
@@ -267,6 +280,116 @@ TOOL_CALL: tool_name(arg1="value1")
             results.append(execute_tool(tool_name, args))
             
         return results
+    
+    def _extract_toml_block(self, response: str) -> str:
+        """Extract TOML content from response (handles ```toml blocks)."""
+        # Try to find ```toml ... ``` block
+        import re
+        toml_match = re.search(r'```toml\s*(.*?)\s*```', response, re.DOTALL)
+        if toml_match:
+            return toml_match.group(1).strip()
+        
+        # If no block markers, try to find [response] section directly
+        if '[response]' in response:
+            start = response.find('[response]')
+            # Find where TOML ends (next non-TOML content or end)
+            return response[start:].strip()
+        
+        return ""
+    
+    def _parse_toml_response(self, toml_str: str) -> dict:
+        """Parse TOML string into structured dict."""
+        try:
+            # Python 3.11+ has tomllib built-in
+            import tomllib
+            return tomllib.loads(toml_str)
+        except ImportError:
+            # Fallback for older Python
+            try:
+                import tomli
+                return tomli.loads(toml_str)
+            except ImportError:
+                # Manual minimal TOML parsing for our specific format
+                return self._simple_toml_parse(toml_str)
+    
+    def _simple_toml_parse(self, toml_str: str) -> dict:
+        """Minimal TOML parser for our specific format."""
+        result = {"response": {}, "args": {}, "tools": []}
+        current_section = None
+        current_tool = None
+        
+        for line in toml_str.strip().split('\n'):
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            
+            # Section headers
+            if line == '[response]':
+                current_section = 'response'
+                current_tool = None
+            elif line == '[args]':
+                current_section = 'args'
+                current_tool = None
+            elif line == '[[tools]]':
+                current_tool = {}
+                result['tools'].append(current_tool)
+                current_section = 'tools'
+            elif '=' in line:
+                # Key-value pair
+                key, value = line.split('=', 1)
+                key = key.strip()
+                value = value.strip().strip('"\'')
+                
+                if current_section == 'tools' and current_tool is not None:
+                    current_tool[key] = value
+                elif current_section == 'response':
+                    result['response'][key] = value
+                elif current_section == 'args':
+                    result['args'][key] = value
+        
+        return result
+    
+    def _execute_parsed_tools(self, parsed: dict) -> List[str]:
+        """Execute tools from parsed TOML structure."""
+        results = []
+        
+        # Single tool case
+        response_data = parsed.get('response', parsed)
+        tool_name = response_data.get('tool', '')
+        args = parsed.get('args', {})
+        
+        if tool_name and tool_name.strip():
+            if tool_requires_confirmation(tool_name):
+                if self.confirmation_callback:
+                    if not self.confirmation_callback(tool_name, args):
+                        return [f"Cancelled: {tool_name}"]
+            results.append(execute_tool(tool_name, args))
+        
+        # Multiple tools case
+        tools_list = parsed.get('tools', [])
+        for tool_data in tools_list:
+            tool_name = tool_data.pop('name', None)
+            if tool_name:
+                if tool_requires_confirmation(tool_name):
+                    if not self.confirmation_callback(tool_name, tool_data):
+                        results.append(f"Cancelled: {tool_name}")
+                        continue
+                results.append(execute_tool(tool_name, tool_data))
+        
+        return results
+    
+    def get_spoken_response(self, response: str) -> str:
+        """Extract just the spoken response from TOML output."""
+        try:
+            toml_content = self._extract_toml_block(response)
+            if toml_content:
+                parsed = self._parse_toml_response(toml_content)
+                if parsed:
+                    return parsed.get('response', {}).get('response', response)
+        except:
+            pass
+        return response
+
     
     def clear_history(self):
         self.conversation_history = [self.conversation_history[0]]
