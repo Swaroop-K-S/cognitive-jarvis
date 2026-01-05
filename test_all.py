@@ -241,7 +241,8 @@ def test_file_manager():
         test("List files", lambda: len(list_files(".")) > 0)
         
         # Test file info
-        test("File info", lambda: "KB" in file_info("requirements.txt") or "bytes" in file_info("requirements.txt").lower())
+        req_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "requirements.txt")
+        test("File info", lambda: "KB" in file_info(req_path) or "bytes" in file_info(req_path).lower())
         
         # Test search
         test("Search files", lambda: len(search_files("*.py")) > 0)

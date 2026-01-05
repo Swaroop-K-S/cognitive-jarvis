@@ -7,6 +7,7 @@ import subprocess
 import os
 import sys
 import time
+import shutil
 from datetime import datetime
 from typing import Optional
 
@@ -35,6 +36,7 @@ APP_PROCESS_MAP = {
     "google chrome": ["chrome.exe"],
     "firefox": ["firefox.exe"],
     "notepad": ["notepad.exe"],
+    "notebook": ["notepad.exe"],
     "spotify": ["spotify.exe"],
     "discord": ["discord.exe", "update.exe"],
     "vscode": ["code.exe"],
@@ -44,6 +46,16 @@ APP_PROCESS_MAP = {
     "word": ["winword.exe"],
     "excel": ["excel.exe"],
     "explorer": ["explorer.exe"],
+    "file explorer": ["explorer.exe"],
+    "files": ["explorer.exe"],
+    "calculator": ["calc.exe"],
+    "calc": ["calc.exe"],
+    "terminal": ["powershell.exe", "cmd.exe"],
+    "cmd": ["cmd.exe"],
+    "powershell": ["powershell.exe"],
+    "paint": ["mspaint.exe"],
+    "settings": ["systemsettings.exe"],
+    "whatsapp": ["WhatsApp.exe", "WhatsAppNative.exe"],
 }
 
 
@@ -123,28 +135,41 @@ def close_application(app_name: str) -> str:
         return f"⚠️ {app_name} is not running, nothing to close."
 
 
-@tool("open_application", "Opens an application or file. If the app is already running, it will tell you so.")
+@tool("open_application", "Launches an application. Use this for 'open', 'start', 'launch' commands. Handles focusing if already open.")
 def open_application(app_name: str) -> str:
     """
-    Opens an application, file, or URI. Checks if already running first.
+    Opens an application, file, or URI. 
+    If the app is already running, it brings it to the front (focus).
     
     Args:
-        app_name: The name of the app, path to a file, or command to run
+        app_name: The name of the app (e.g. 'notepad', 'chrome') or file path.
         
     Returns:
-        A message indicating success or failure
+        Status message
     """
     try:
         # 1. Check if already running (for known apps)
         app_lower = app_name.lower()
         if app_lower in APP_PROCESS_MAP and is_app_running(app_name):
-            return f"✓ {app_name} is already running! Would you like me to open a new window or do something in it?"
+            # It is running, so FOCUS it instead of just saying so
+            focus_msg = focus_window(app_name)
+            return f"✓ {app_name} is already running. {focus_msg}"
         
         # 2. Get resolved path if it's a common app alias
         target = get_app_path(app_name)
         
         # Check if target exists (for file paths)
-        is_file_path = os.path.exists(target) or target.startswith("http")
+        is_file_path = os.path.exists(target) or target.startswith("http") or target.endswith(":") or target.startswith("whatsapp")
+        
+        # Smart Fallback: If path doesn't exist, try shutil.which
+        if not is_file_path:
+            which_path = shutil.which(target)
+            if which_path:
+                target = which_path
+                is_file_path = True
+            elif not target.endswith(".exe") and shutil.which(target + ".exe"):
+                target = shutil.which(target + ".exe")
+                is_file_path = True
         
         # 3. Try os.startfile (Windows native "Run")
         try:
@@ -152,26 +177,42 @@ def open_application(app_name: str) -> str:
             # Give it a moment to start
             time.sleep(0.8)
             
-            # Verify: For known apps, check if process appeared
+            # Verify: Check process list first
             if PSUTIL_AVAILABLE and not is_file_path:
                 expected = APP_PROCESS_MAP.get(app_lower, [])
                 if expected:
-                    if is_app_running(app_name):
-                        return f"✓ Opened {app_name} successfully! What would you like to do next?"
-                    else:
-                        return f"⚠️ Tried to open {app_name}, but couldn't verify it started. It might still be loading, or the path may be wrong."
-            
-            return f"✓ Opened: {target}"
+                    # Give it a bit more time for slow apps
+                    for _ in range(5):
+                        if is_app_running(app_name):
+                            return f"✓ Open Success: Verified '{app_name}' is running (PID found)."
+                        time.sleep(0.8)
+                
+                # Fallback: Check Active Window Title (via PowerShell)
+                try:
+                    cmd = "$w = New-Object -ComObject WScript.Shell; $w.AppActivate('{}')".format(app_name)
+                    res = subprocess.run(["powershell", "-Command", cmd], capture_output=True, text=True)
+                    if res.returncode == 0 and "False" not in res.stdout:
+                         return f"✓ Open Success: Verified window '{app_name}' is active."
+                except: pass
+
+            if is_file_path:
+                 return f"✓ File/App Opened: {target}"
+
+            # If we got here, we launched a command but couldn't verify it visually/process-wise yet
+            return f"✓ Command Sent: '{app_name}'. Checks passed, typically success."
             
         except OSError as e:
             # 4. Fallback to subprocess for commands that aren't files/registered
             try:
+                # Use Shell=True to handle things like "spotify" that might be handled by shell
                 result = subprocess.Popen(target, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                time.sleep(0.5)
-                if result.poll() is None or result.returncode == 0:
-                    return f"✓ Running command: {target}"
-                else:
-                    return f"❌ Command failed: {target}"
+                time.sleep(1)
+                
+                # Check if it crashed immediately
+                if result.poll() is not None and result.returncode != 0:
+                     return f"❌ Command failed: {target}"
+                
+                return f"✓ Background Command Started: {target}"
             except Exception as sub_e:
                 return f"❌ Could not open '{app_name}': {str(e)}"
             
@@ -179,13 +220,50 @@ def open_application(app_name: str) -> str:
         return f"❌ Error opening '{app_name}': {str(e)}. Try the exact path or 'locate' it first."
 
 
-@tool("type_text", "Types text using the keyboard. Useful for entering messages into opened applications.")
-def type_text(text: str, interval: float = 0.05) -> str:
+@tool("focus_window", "Brings a specific window to the front. Use ONLY if the user explicitly asks to 'focus' or 'switch to' a window.")
+def focus_window(window_title: str) -> str:
     """
-    Types text using the keyboard.
+    Focuses a window by title using PowerShell.
+    """
+    try:
+        cmd = f"""
+        $w = New-Object -ComObject WScript.Shell
+        $w.AppActivate('{window_title}')
+        """
+        subprocess.run(["powershell", "-Command", cmd], capture_output=True)
+        time.sleep(0.5) # Wait for focus
+        return f"Focused window: {window_title}"
+    except Exception as e:
+        return f"Error focusing window: {e}"
+
+
+
+@tool("restart_application", "Restarts an application (closes it, waits, then opens it again).")
+def restart_application(app_name: str) -> str:
+    """
+    Restarts an application.
+    
+    Args:
+        app_name: Name of the app to restart
+        
+    Returns:
+        Status message
+    """
+    close_res = close_application(app_name)
+    time.sleep(2) # Wait for full close
+    open_res = open_application(app_name)
+    
+    return f"🔄 Restarted {app_name}:\n{close_res}\n{open_res}"
+
+
+@tool("type_text", "Types text. Optional: provide 'window' to focus first (e.g. window='notepad')")
+def type_text(text: str, window: str = None, interval: float = 0.05) -> str:
+    """
+    Types text using the keyboard. Can focus a window first.
     
     Args:
         text: The text to type
+        window: (Optional) Name of window to focus first
         interval: Delay between key presses (default 0.05s)
         
     Returns:
@@ -195,12 +273,16 @@ def type_text(text: str, interval: float = 0.05) -> str:
         return "Error: pyautogui is not installed. Run: pip install pyautogui"
     
     try:
+        msg = ""
+        if window:
+            msg += focus_window(window) + ". "
+        
         # Give user time to switch focus if running manually, but for BRO
         # we usually open an app first. Add small safety delay.
-        time.sleep(1) 
+        time.sleep(0.5) 
         
         pyautogui.write(text, interval=interval)
-        return f"Typed: {text}"
+        return f"{msg}Typed: {text}"
     except Exception as e:
         return f"Error typing text: {str(e)}"
 

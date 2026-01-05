@@ -147,6 +147,8 @@ COMMON_APPS = {
     "cmd": "cmd.exe",
     "powershell": "powershell.exe",
     "paint": "mspaint.exe",
+    "settings": "systemsettings.exe",
+    "whatsapp": "whatsapp:",
     "wordpad": "write.exe",
 }
 

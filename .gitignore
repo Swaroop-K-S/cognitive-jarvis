@@ -32,6 +32,7 @@ ENV/
 jarvis_memory/
 *.db
 *.sqlite
+*.sqlite3
 
 # IDE
 .vscode/
