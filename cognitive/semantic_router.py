@@ -44,6 +44,17 @@ INTENT_ANCHORS = {
         "My birthday is March 15th",
         "Please remember I have a meeting tomorrow",
         "Add to memory: I like coffee",
+        # Natural phrasing (fixes Test 1)
+        "Make a note that I'm out of milk",
+        "Make a note of this",
+        "Jot this down",
+        "Don't forget that I need groceries",
+        "Write down that I have a dentist appointment",
+        "I want you to remember this",
+        "Store this for later",
+        "Log this information",
+        "Take note of my address",
+        "Record that my password is abc123",
     ],
     Intent.RECALL: [
         # Memory retrieval
