@@ -4,13 +4,10 @@ Implements the Think-Decide-Remember-Act loop.
 Standalone module - no LLM dependencies to avoid circular imports.
 """
 
-import sys
 import os
 from typing import Dict, Any, Optional, Tuple
 from enum import Enum
 from dataclasses import dataclass
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from memory import get_memory, CHROMADB_AVAILABLE
 

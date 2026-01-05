@@ -10,8 +10,6 @@ import re
 from typing import Dict, Any, List, Optional
 import urllib.request
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True

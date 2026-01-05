@@ -66,18 +66,12 @@ def listen_one_shot(timeout=5, phrase_time_limit=10, force_google=False) -> str:
     return _listen_google(timeout, phrase_time_limit)
 
 
-def _listen_google(timeout=5, phrase_time_limit=10) -> str:
+def _listen_google(timeout=1.0, phrase_time_limit=10) -> str:
     """
     Listen using Google's Web Speech API (cloud-based).
+    Timeout reduced to 1.0s to prevent long blocking loops.
     
     Note: Sends audio to Google servers. Requires internet.
-    
-    Args:
-        timeout: Maximum seconds to wait for speech to start
-        phrase_time_limit: Maximum seconds to let the user speak
-        
-    Returns:
-        The recognized text, or None if failed/timed out
     """
     recognizer = sr.Recognizer()
     
