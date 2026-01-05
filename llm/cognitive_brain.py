@@ -190,6 +190,9 @@ TOOL_CALL: tool_name(arg1="value1")
     
     def _call_ollama(self, prompt: str, model: str) -> str:
         try:
+            # CONTEXT PRUNER: Prevent unbounded history growth (8k context limit)
+            self._prune_context()
+            
             self.conversation_history.append({"role": "user", "content": prompt})
             
             payload = {
@@ -214,6 +217,27 @@ TOOL_CALL: tool_name(arg1="value1")
             return content
         except Exception as e:
             return f"Error: {e}"
+    
+    def _prune_context(self, max_messages: int = 20, keep_recent: int = 10):
+        """
+        Prune conversation history to prevent context window overflow.
+        Keeps system prompt + last N messages.
+        
+        Args:
+            max_messages: Trigger pruning when history exceeds this count
+            keep_recent: Number of recent messages to keep after pruning
+        """
+        if len(self.conversation_history) > max_messages:
+            # Keep system prompt [0] + last keep_recent messages
+            system_prompt = self.conversation_history[0] if self.conversation_history else None
+            recent_messages = self.conversation_history[-keep_recent:]
+            
+            if system_prompt and system_prompt.get("role") == "system":
+                self.conversation_history = [system_prompt] + recent_messages
+            else:
+                self.conversation_history = recent_messages
+            
+            print(f"    📋 Context pruned: kept {len(self.conversation_history)} messages")
     
     def _extract_and_execute_tools(self, response: str) -> List[str]:
         """
