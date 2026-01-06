@@ -87,7 +87,15 @@ INTENT_ANCHORS = {
         "Type hello world",
         "Press enter key",
         "Search for Python",
+        "Search for Python",
         "Go to google.com",
+        # Video & Copilot
+        "Summarize this video",
+        "Find when this happens in the video",
+        "Enable screen copilot",
+        "Take over the screen",
+        "Watch my screen",
+        "Analyze this video",
     ],
     Intent.CODE: [
         # Programming related

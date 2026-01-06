@@ -56,7 +56,7 @@ except ImportError:
 # "tiny.en" - 39M params, ~10x realtime on CPU
 # "base.en" - 74M params, ~5x realtime on CPU  
 # "small.en" - 244M params, ~2x realtime on CPU
-DEFAULT_MODEL = "tiny.en"  # Best for real-time on CPU
+DEFAULT_MODEL = "small"  # Multilingual model (supports Hindi/Kannada)
 DEFAULT_DEVICE = "cpu"  # or "cuda" for GPU
 DEFAULT_COMPUTE_TYPE = "int8"  # int8 for CPU, float16 for GPU
 
@@ -168,7 +168,7 @@ class WhisperSTT:
             segments, info = self.model.transcribe(
                 audio_data,
                 beam_size=1,  # Faster decoding
-                language="en",
+                language=None, # Auto-detect language (supports Hindi, Kannada, etc.)
                 vad_filter=True,  # Built-in VAD
                 vad_parameters=dict(
                     min_silence_duration_ms=500,

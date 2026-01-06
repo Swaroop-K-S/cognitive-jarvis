@@ -33,6 +33,13 @@ try:
 except ImportError:
     pass
 
+EASYOCR_AVAILABLE = False
+try:
+    import easyocr
+    EASYOCR_AVAILABLE = True
+except ImportError:
+    pass
+
 from config import OLLAMA_HOST
 from .registry import tool
 
@@ -190,11 +197,28 @@ Be brief and precise."""
     return _call_llava(prompt, image_b64)
 
 
-@tool("read_screen_text", "Reads and extracts all visible text from the screen using OCR.")
+
+# Lazy-load EasyOCR reader
+_ocr_reader = None
+
+def _get_ocr_reader():
+    global _ocr_reader
+    if _ocr_reader is None and EASYOCR_AVAILABLE:
+        try:
+            print("    👀 Loading EasyOCR model (one-time setup)...")
+            # verbose=False to keep logs clean
+            _ocr_reader = easyocr.Reader(['en'], gpu=True, verbose=False) 
+        except Exception as e:
+            print(f"    ⚠️ EasyOCR init failed: {e}")
+            return None
+    return _ocr_reader
+
+
+@tool("read_screen_text", "Reads and extracts all visible text from the screen using OCR (EasyOCR/Tesseract).")
 def read_screen_text(region: str = None) -> str:
     """
     Uses OCR to extract text from the screen.
-    Faster than LLaVA for pure text extraction.
+    Prioritizes EasyOCR (high accuracy) > Tesseract (fast) > LLaVA (smart but slow).
     
     Args:
         region: Optional region description (not implemented yet - captures full screen)
@@ -209,22 +233,40 @@ def read_screen_text(region: str = None) -> str:
     if screenshot is None:
         return "❌ Could not capture screen"
     
-    # Try OCR first (faster for text)
+    # 1. Try EasyOCR (Best Accuracy)
+    if EASYOCR_AVAILABLE:
+        reader = _get_ocr_reader()
+        if reader:
+            try:
+                # EasyOCR works on numpy arrays or file paths, bytes
+                # Convert PIL to bytes
+                img_buffer = BytesIO()
+                screenshot.save(img_buffer, format='PNG')
+                results = reader.readtext(img_buffer.getvalue(), detail=0)
+                
+                text = "\n".join(results)
+                if text.strip():
+                    return f"📝 Screen text (EasyOCR):\n{text.strip()}"
+            except Exception as e:
+                print(f"    ⚠️ EasyOCR error: {e}")
+                # Fallthrough to Tesseract
+    
+    # 2. Try Tesseract (Fast Fallback)
     if OCR_AVAILABLE:
         try:
             text = pytesseract.image_to_string(screenshot)
             if text.strip():
-                return f"📝 Screen text:\n{text.strip()}"
+                return f"📝 Screen text (Tesseract):\n{text.strip()}"
         except Exception as e:
             pass  # Fall through to LLaVA
     
-    # Fallback to LLaVA
+    # 3. Fallback to LLaVA (Smartest but Slower)
     if _check_llava_available():
         image_b64 = _image_to_base64(screenshot)
         prompt = "Read and transcribe ALL text visible on this screen. Just output the text, nothing else."
         return _call_llava(prompt, image_b64)
     
-    return "❌ OCR not available (install pytesseract) and LLaVA not running"
+    return "❌ OCR failed: Install easyocr or pytesseract, or pull llava model."
 
 
 @tool("describe_image", "Analyzes and describes an image file.")
@@ -297,6 +339,7 @@ def vision_status() -> dict:
     return {
         "vision_deps": VISION_DEPS_AVAILABLE,
         "ocr_available": OCR_AVAILABLE,
+        "easyocr_available": EASYOCR_AVAILABLE,
         "llava_available": _check_llava_available(),
         "vision_model": VISION_MODEL
     }

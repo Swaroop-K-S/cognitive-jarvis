@@ -40,6 +40,11 @@ from .file_convert import (
     ppt_to_images, ppt_to_text, file_convert_status
 )
 
+# Video Recognition Tools (NEW)
+from .video_recognition import (
+    summarize_video, find_in_video, video_status
+)
+
 # Memory Tools
 from .memory_tools import clear_memory
 
@@ -73,6 +78,12 @@ __all__ = [
     "convert_image", "resize_image", "compress_image", "images_to_pdf",
     "pdf_to_text", "merge_pdfs", "docx_to_text",
     "ppt_to_images", "ppt_to_text", "file_convert_status",
+    
+    # Video Recognition (NEW)
+    "summarize_video", "find_in_video", "video_status",
+    
+    # Screen Copilot (NEW)
+    "enable_screen_copilot", "disable_screen_copilot", "take_over_screen",
     
     # Memory
     "clear_memory",

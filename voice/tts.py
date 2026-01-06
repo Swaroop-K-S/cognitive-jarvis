@@ -18,7 +18,7 @@ except ImportError:
     TTS_AVAILABLE = False
     pyttsx3 = None
 
-from config import TTS_RATE, TTS_VOLUME
+from config import TTS_RATE, TTS_VOLUME, TTS_ENGINE
 
 
 # Global TTS engine (singleton pattern for thread safety)
@@ -66,9 +66,18 @@ def speak(text: str, wait: bool = True) -> bool:
     Returns:
         True if successful, False otherwise
     """
-    if not TTS_AVAILABLE:
+    if not TTS_AVAILABLE and TTS_ENGINE != "edge":
         print(f"🔊 [TTS Unavailable] {text}")
         return False
+        
+    if TTS_ENGINE == "edge":
+        try:
+            from .tts_neural import speak_neural
+            speak_neural(text, wait)
+            return True
+        except Exception as e:
+            print(f"⚠️ Edge TTS failed: {e}")
+            # Fallback to pyttsx3 below
     
     engine = _get_engine()
     if engine is None:

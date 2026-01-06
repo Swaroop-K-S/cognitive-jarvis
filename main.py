@@ -131,6 +131,13 @@ def main():
     brain = CognitiveBrain()
     brain.set_confirmation_callback(confirmation_prompt)
     
+    # Initialize Screen Copilot (The "Eye")
+    try:
+        from tools.screen_copilot import get_copilot
+        get_copilot(brain)
+    except Exception as e:
+        print(f"⚠️ Copilot init failed: {e}")
+    
     print_status(brain)
     
     if not brain.is_available():

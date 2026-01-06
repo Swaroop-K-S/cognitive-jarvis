@@ -213,10 +213,52 @@ TOOL_CALL: tool_name(arg1="value1")
                 result = json.loads(resp.read().decode())
                 content = result.get("message", {}).get("content", "")
             
+            # DEBUG: Print Raw LLM Response to see script usage
+            print(f"\n🧠 [LLM RAW]: {content}\n")
+            
             self.conversation_history.append({"role": "assistant", "content": content})
             return content
         except Exception as e:
+            print(f"❌ LLM Error: {e}")
             return f"Error: {e}"
+
+    def think_fast(self, prompt: str, image: str = None) -> str:
+        """
+        Fast, stateless thinking (no memory history). 
+        Used for background monitoring loops.
+        """
+        try:
+            messages = [{"role": "user", "content": prompt}]
+            if image:
+                messages[0]["images"] = [image]
+                
+            payload = {
+                "model": "llava:7b" if image else OLLAMA_MODEL, # Use Vision model if image provided
+                "messages": messages,
+                "stream": False,
+                "options": {"temperature": 0.1, "num_predict": 50} # Very short/fast
+            }
+            
+            data = json.dumps(payload).encode()
+            req = urllib.request.Request(
+                f"{OLLAMA_HOST}/api/chat",
+                data=data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                result = json.loads(resp.read().decode())
+                return result.get("message", {}).get("content", "").strip()
+        except Exception as e:
+            return f"Error: {e}"
+
+    def think_with_vision(self, prompt: str, image: str) -> str:
+        """
+        Think about an image (stateless).
+        Used for active visual tasks.
+        """
+        return self.think_fast(prompt, image)
+
     
     def _prune_context(self, max_messages: int = 20, keep_recent: int = 10):
         """

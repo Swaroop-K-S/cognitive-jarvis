@@ -1,480 +1,265 @@
 """
-BRO Video Recognition
-Analyze videos and live feeds using AI vision (LLaVA).
+Video Recognition Module
+Pipelines: Video -> Frames -> Vision AI -> Summary/Search.
+Supports local files and YouTube URLs.
 """
-
+import cv2
 import os
-import sys
-import json
-import base64
-import urllib.request
-import tempfile
 import time
-from pathlib import Path
-from typing import List, Dict, Optional, Callable
+import base64
+from typing import List, Dict, Optional
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Try to import CV2
+from config import OLLAMA_HOST
+
+# Try to import ollama client
+OLLAMA_CLIENT_AVAILABLE = False
 try:
-    import cv2
-    CV2_AVAILABLE = True
+    import ollama
+    OLLAMA_CLIENT_AVAILABLE = True
 except ImportError:
-    CV2_AVAILABLE = False
+    ollama = None
 
-# Try to import PIL
+# Try to import yt-dlp
+YTDLP_AVAILABLE = False
 try:
-    from PIL import Image
-    PIL_AVAILABLE = True
+    import yt_dlp
+    YTDLP_AVAILABLE = True
 except ImportError:
-    PIL_AVAILABLE = False
+    yt_dlp = None
 
 
-# =============================================================================
-# CONFIGURATION
-# =============================================================================
-
-VISION_MODEL = "llava:7b"
-OLLAMA_URL = "http://localhost:11434/api/chat"
-FRAME_INTERVAL = 30  # Analyze every 30 frames (about 1 per second at 30fps)
+# Vision model to use for frame analysis
+VISION_MODEL = "llava:7b"  # or "moondream" for lighter weight
 
 
-# =============================================================================
-# VIDEO FRAME EXTRACTION
-# =============================================================================
-
-def extract_frames(video_path: str, interval: int = FRAME_INTERVAL, max_frames: int = 10) -> List[str]:
+class VideoRecognizer:
     """
-    Extract frames from a video file.
-    
-    Args:
-        video_path: Path to video file
-        interval: Extract every N frames
-        max_frames: Maximum number of frames to extract
-    
-    Returns:
-        List of paths to extracted frame images
+    Video analysis using frame-sampling pipeline.
+    Extracts keyframes and uses Vision AI to understand content.
     """
-    if not CV2_AVAILABLE:
-        raise ImportError("OpenCV required. Run: pip install opencv-python")
     
-    cap = cv2.VideoCapture(video_path)
-    if not cap.isOpened():
-        raise ValueError(f"Cannot open video: {video_path}")
-    
-    frames = []
-    frame_count = 0
-    extracted = 0
-    
-    temp_dir = tempfile.mkdtemp(prefix="bro_video_")
-    
-    while extracted < max_frames:
-        ret, frame = cap.read()
-        if not ret:
-            break
+    def __init__(self):
+        self.temp_dir = "temp_video_frames"
+        if not os.path.exists(self.temp_dir):
+            os.makedirs(self.temp_dir)
+
+    def _download_youtube(self, url: str) -> Optional[str]:
+        """Downloads YouTube video to a temp file (lowest quality for speed)."""
+        if not YTDLP_AVAILABLE:
+            print("    ❌ yt-dlp not installed. Run: pip install yt-dlp")
+            return None
         
-        if frame_count % interval == 0:
-            frame_path = os.path.join(temp_dir, f"frame_{extracted:04d}.jpg")
-            cv2.imwrite(frame_path, frame)
-            frames.append(frame_path)
-            extracted += 1
-        
-        frame_count += 1
-    
-    cap.release()
-    return frames
-
-
-def capture_screen() -> str:
-    """Capture current screen."""
-    if not CV2_AVAILABLE:
-        # Use Windows screenshot
-        import subprocess
-        temp_path = os.path.join(tempfile.gettempdir(), "bro_screen.png")
-        subprocess.run([
-            "powershell", "-Command",
-            f"Add-Type -AssemblyName System.Windows.Forms; "
-            f"[System.Windows.Forms.Screen]::PrimaryScreen | ForEach-Object {{ "
-            f"$bitmap = New-Object System.Drawing.Bitmap($_.Bounds.Width, $_.Bounds.Height); "
-            f"$graphics = [System.Drawing.Graphics]::FromImage($bitmap); "
-            f"$graphics.CopyFromScreen($_.Bounds.Location, [System.Drawing.Point]::Empty, $_.Bounds.Size); "
-            f"$bitmap.Save('{temp_path}'); }}"
-        ], capture_output=True)
-        return temp_path
-    else:
-        import numpy as np
-        from PIL import ImageGrab
-        
-        screen = ImageGrab.grab()
-        temp_path = os.path.join(tempfile.gettempdir(), "bro_screen.png")
-        screen.save(temp_path)
-        return temp_path
-
-
-def capture_webcam() -> str:
-    """Capture frame from webcam."""
-    if not CV2_AVAILABLE:
-        raise ImportError("OpenCV required for webcam. Run: pip install opencv-python")
-    
-    cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        raise ValueError("Cannot open webcam")
-    
-    ret, frame = cap.read()
-    cap.release()
-    
-    if not ret:
-        raise ValueError("Failed to capture from webcam")
-    
-    temp_path = os.path.join(tempfile.gettempdir(), "bro_webcam.jpg")
-    cv2.imwrite(temp_path, frame)
-    return temp_path
-
-
-# =============================================================================
-# AI VISION ANALYSIS
-# =============================================================================
-
-def analyze_image(image_path: str, prompt: str = "Describe what you see in this image.") -> str:
-    """Analyze a single image using LLaVA."""
-    try:
-        with open(image_path, "rb") as f:
-            img_b64 = base64.b64encode(f.read()).decode()
-        
-        payload = json.dumps({
-            "model": VISION_MODEL,
-            "messages": [{
-                "role": "user",
-                "content": prompt,
-                "images": [img_b64]
-            }],
-            "stream": False,
-            "options": {"temperature": 0.3}
-        }).encode()
-        
-        req = urllib.request.Request(
-            OLLAMA_URL,
-            data=payload,
-            headers={"Content-Type": "application/json"}
-        )
-        
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            result = json.loads(resp.read().decode())
-            return result["message"]["content"]
-    
-    except Exception as e:
-        return f"Error: {e}"
-
-
-def analyze_video(video_path: str, prompt: str = None, max_frames: int = 5) -> str:
-    """
-    Analyze a video by extracting key frames and describing each.
-    
-    Args:
-        video_path: Path to video file
-        prompt: Custom prompt for analysis
-        max_frames: Number of frames to analyze
-    """
-    if prompt is None:
-        prompt = "Describe what's happening in this video frame. Be specific about actions, people, and objects."
-    
-    print(f"🎬 Analyzing video: {video_path}")
-    print(f"   Extracting {max_frames} frames...")
-    
-    frames = extract_frames(video_path, max_frames=max_frames)
-    
-    if not frames:
-        return "❌ Could not extract frames from video"
-    
-    print(f"   Analyzing {len(frames)} frames with AI vision...")
-    
-    output = f"""
-🎬 VIDEO ANALYSIS
-{'='*50}
-File: {os.path.basename(video_path)}
-Frames analyzed: {len(frames)}
-{'='*50}
-"""
-    
-    for i, frame_path in enumerate(frames):
-        print(f"   Processing frame {i+1}/{len(frames)}...")
-        description = analyze_image(frame_path, prompt)
-        output += f"\n📷 Frame {i+1}:\n{description}\n"
-        
-        # Clean up frame
+        print(f"    🎥 Downloading YouTube video...")
+        ydl_opts = {
+            'format': 'worst',  # We only need low-res for vision
+            'outtmpl': os.path.join(self.temp_dir, 'temp_video.%(ext)s'),
+            'quiet': True,
+            'no_warnings': True,
+        }
         try:
-            os.remove(frame_path)
-        except:
-            pass
-    
-    # Generate summary
-    summary_prompt = f"""Based on these frame descriptions, provide a brief summary of what happens in this video:
-
-{output}
-
-Summarize in 2-3 sentences."""
-    
-    # Use text model for summary
-    try:
-        payload = json.dumps({
-            "model": "gemma3",
-            "messages": [{"role": "user", "content": summary_prompt}],
-            "stream": False
-        }).encode()
-        
-        req = urllib.request.Request(
-            OLLAMA_URL,
-            data=payload,
-            headers={"Content-Type": "application/json"}
-        )
-        
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            result = json.loads(resp.read().decode())
-            summary = result["message"]["content"]
-            output += f"\n{'='*50}\n📝 SUMMARY:\n{summary}\n"
-    except:
-        pass
-    
-    return output
-
-
-# =============================================================================
-# REAL-TIME ANALYSIS
-# =============================================================================
-
-def watch_screen(interval: int = 5, duration: int = 30, 
-                 prompt: str = "What's happening on screen?",
-                 callback: Callable[[str], None] = None) -> List[Dict]:
-    """
-    Watch screen and analyze periodically.
-    
-    Args:
-        interval: Seconds between captures
-        duration: Total seconds to watch
-        prompt: Question to ask about each frame
-        callback: Optional callback for each analysis
-    """
-    results = []
-    start = time.time()
-    
-    print(f"👁️ Watching screen for {duration}s (every {interval}s)...")
-    
-    while time.time() - start < duration:
-        try:
-            screen_path = capture_screen()
-            analysis = analyze_image(screen_path, prompt)
-            
-            result = {
-                "timestamp": time.time() - start,
-                "analysis": analysis
-            }
-            results.append(result)
-            
-            print(f"\n⏱️ {result['timestamp']:.1f}s: {analysis[:100]}...")
-            
-            if callback:
-                callback(analysis)
-            
-            time.sleep(interval)
-        
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                return ydl.prepare_filename(info)
         except Exception as e:
-            print(f"Error: {e}")
-            time.sleep(interval)
-    
-    return results
+            print(f"    ❌ YouTube download failed: {e}")
+            return None
+
+    def _extract_frames(self, video_path: str, interval: int = 5) -> List[str]:
+        """Extracts one frame every 'interval' seconds."""
+        print(f"    🎞️ Extracting frames from {os.path.basename(video_path)}...")
+        vidcap = cv2.VideoCapture(video_path)
+        
+        if not vidcap.isOpened():
+            print(f"    ❌ Could not open video: {video_path}")
+            return []
+        
+        fps = vidcap.get(cv2.CAP_PROP_FPS)
+        if fps == 0:
+            fps = 30  # Default fallback
+        
+        frame_interval = int(fps * interval)
+        if frame_interval == 0:
+            frame_interval = 1
+        
+        frames_base64 = []
+        count = 0
+        success = True
+        
+        while success:
+            success, image = vidcap.read()
+            if count % frame_interval == 0 and success:
+                # Resize to speed up Vision AI (512px max)
+                height, width = image.shape[:2]
+                if width > 512:
+                    scale = 512 / width
+                    image = cv2.resize(image, (512, int(height * scale)))
+                
+                # Convert to base64
+                _, buffer = cv2.imencode('.jpg', image)
+                frame_str = base64.b64encode(buffer).decode('utf-8')
+                frames_base64.append(frame_str)
+                timestamp = count / fps
+                print(f"      -> Captured frame at {timestamp:.1f}s")
+            count += 1
+            
+        vidcap.release()
+        print(f"    ✓ Extracted {len(frames_base64)} keyframes")
+        return frames_base64
+
+    def analyze_video(self, source: str, query: str = "Describe what happens in this video") -> str:
+        """
+        Main pipeline: Source -> Frames -> Captions -> Summary
+        
+        Args:
+            source: Path to video file or YouTube URL
+            query: Question about the video
+            
+        Returns:
+            Summary or answer based on video content
+        """
+        if not OLLAMA_CLIENT_AVAILABLE:
+            return "Error: ollama client not installed. Run: pip install ollama"
+        
+        video_path = source
+        is_youtube = "youtube.com" in source or "youtu.be" in source
+        
+        try:
+            # 1. Acquire Video
+            if is_youtube:
+                video_path = self._download_youtube(source)
+                if not video_path:
+                    return "Failed to download YouTube video."
+            
+            if not os.path.exists(video_path):
+                return f"Video file not found: {video_path}"
+            
+            # 2. Extract Keyframes (1 frame every 5 seconds)
+            frames = self._extract_frames(video_path, interval=5)
+            if not frames:
+                return "Could not extract any frames from the video."
+            
+            # Limit frames to avoid overwhelming the LLM
+            max_frames = 20
+            if len(frames) > max_frames:
+                # Sample evenly across the video
+                step = len(frames) // max_frames
+                frames = frames[::step][:max_frames]
+                print(f"    📋 Sampled down to {len(frames)} frames")
+            
+            # 3. Vision Loop (The "Eyes")
+            print(f"    🧠 Analyzing {len(frames)} frames with {VISION_MODEL}...")
+            frame_descriptions = []
+            
+            for i, frame in enumerate(frames):
+                try:
+                    # Ask Vision model to describe the frame briefly
+                    res = ollama.chat(model=VISION_MODEL, messages=[{
+                        'role': 'user',
+                        'content': "Describe this image in one brief sentence.",
+                        'images': [frame]
+                    }])
+                    desc = res['message']['content'].strip()
+                    timestamp = i * 5
+                    frame_descriptions.append(f"[{timestamp}s]: {desc}")
+                    print(f"      -> Frame {i+1}/{len(frames)}: {desc[:60]}...")
+                except Exception as e:
+                    print(f"      ⚠️ Frame {i} failed: {e}")
+                    continue
+            
+            if not frame_descriptions:
+                return "Failed to analyze any frames. Check if vision model is available."
+            
+            # 4. Synthesis Loop (The "Brain")
+            print(f"    🧠 Synthesizing {len(frame_descriptions)} descriptions...")
+            full_context = "\n".join(frame_descriptions)
+            
+            summary_prompt = f"""Here is a timeline of events from a video:
+
+{full_context}
+
+User Question: {query}
+
+Based on the timeline above, answer the user's question concisely."""
+            
+            final_res = ollama.chat(model="gemma3", messages=[{
+                'role': 'user',
+                'content': summary_prompt
+            }])
+            
+            return final_res['message']['content']
+
+        except Exception as e:
+            return f"Video Error: {str(e)}"
+        finally:
+            # Cleanup YouTube downloads
+            if is_youtube and video_path and os.path.exists(video_path):
+                try:
+                    os.remove(video_path)
+                except:
+                    pass
 
 
-def watch_webcam(interval: int = 3, duration: int = 30,
-                 prompt: str = "What do you see?") -> List[Dict]:
+# =============================================================================
+# REGISTRY-COMPATIBLE WRAPPER FUNCTIONS
+# =============================================================================
+
+from .registry import tool
+
+_recognizer = None
+
+def _get_recognizer() -> VideoRecognizer:
+    global _recognizer
+    if _recognizer is None:
+        _recognizer = VideoRecognizer()
+    return _recognizer
+
+
+@tool("summarize_video", "Summarize the main events and content of a video file or YouTube URL.")
+def summarize_video(video_source: str) -> str:
     """
-    Watch webcam and analyze periodically.
-    """
-    if not CV2_AVAILABLE:
-        return [{"error": "OpenCV required for webcam"}]
-    
-    results = []
-    start = time.time()
-    
-    print(f"📹 Watching webcam for {duration}s...")
-    
-    cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        return [{"error": "Cannot open webcam"}]
-    
-    try:
-        while time.time() - start < duration:
-            ret, frame = cap.read()
-            if not ret:
-                continue
-            
-            # Save frame
-            temp_path = os.path.join(tempfile.gettempdir(), "bro_webcam_temp.jpg")
-            cv2.imwrite(temp_path, frame)
-            
-            # Analyze
-            analysis = analyze_image(temp_path, prompt)
-            
-            result = {
-                "timestamp": time.time() - start,
-                "analysis": analysis
-            }
-            results.append(result)
-            
-            print(f"\n📹 {result['timestamp']:.1f}s: {analysis[:100]}...")
-            
-            time.sleep(interval)
-    finally:
-        cap.release()
-    
-    return results
-
-
-# =============================================================================
-# SPECIALIZED ANALYSIS
-# =============================================================================
-
-def detect_objects(image_or_video: str) -> str:
-    """Detect and list objects in image or video."""
-    prompt = """List ALL objects you can see in this image.
-Format as a bullet list with confidence level (high/medium/low):
-• [object] - [confidence]
-
-Be thorough and specific."""
-    
-    if image_or_video.lower().endswith(('.mp4', '.avi', '.mov', '.mkv')):
-        frames = extract_frames(image_or_video, max_frames=3)
-        if frames:
-            return analyze_image(frames[0], prompt)
-    
-    return analyze_image(image_or_video, prompt)
-
-
-def read_text(image_path: str) -> str:
-    """Extract text from image (OCR-like)."""
-    prompt = """Read and transcribe ALL text visible in this image.
-Include signs, labels, screens, documents, etc.
-Format the text exactly as it appears."""
-    
-    return analyze_image(image_path, prompt)
-
-
-def describe_person(image_path: str) -> str:
-    """Describe people in image."""
-    prompt = """Describe the people visible in this image:
-- How many people
-- What they're wearing
-- What they're doing
-- Estimated age range
-- Any notable features
-
-Be respectful and objective."""
-    
-    return analyze_image(image_path, prompt)
-
-
-def analyze_activity(video_path: str) -> str:
-    """Analyze activity/actions in a video."""
-    prompt = "Describe the main activity or action happening in this frame. What are people doing?"
-    return analyze_video(video_path, prompt, max_frames=5)
-
-
-# =============================================================================
-# CONVENIENCE FUNCTIONS
-# =============================================================================
-
-def see(source: str = "screen", prompt: str = None) -> str:
-    """
-    Quick vision command.
+    Summarize a video file or YouTube URL.
     
     Args:
-        source: "screen", "webcam", or path to image/video
-        prompt: What to ask about the image
+        video_source: Path to local video file or YouTube URL
+        
+    Returns:
+        Summary of the video content
     """
-    if source == "screen":
-        screen_path = capture_screen()
-        prompt = prompt or "What's on my screen? Be brief."
-        result = analyze_image(screen_path, prompt)
-        return f"👁️ Screen: {result}"
+    recognizer = _get_recognizer()
+    return recognizer.analyze_video(
+        video_source, 
+        "Summarize the main events and content of this video."
+    )
+
+
+@tool("find_in_video", "Find specific events or objects in a video file or YouTube URL.")
+def find_in_video(video_source: str, search_query: str) -> str:
+    """
+    Find specific events or objects in a video.
     
-    elif source == "webcam":
-        webcam_path = capture_webcam()
-        prompt = prompt or "What do you see? Be brief."
-        result = analyze_image(webcam_path, prompt)
-        return f"📹 Webcam: {result}"
-    
-    elif os.path.isfile(source):
-        if source.lower().endswith(('.mp4', '.avi', '.mov', '.mkv', '.webm')):
-            return analyze_video(source, prompt or None)
-        else:
-            return analyze_image(source, prompt or "Describe this image.")
-    
-    else:
-        return f"❌ Unknown source: {source}"
+    Args:
+        video_source: Path to local video file or YouTube URL
+        search_query: What to search for in the video
+        
+    Returns:
+        Timestamps and descriptions of matching content
+    """
+    recognizer = _get_recognizer()
+    return recognizer.analyze_video(
+        video_source, 
+        f"Find where this happens in the video: {search_query}. "
+        f"Return the approximate timestamp(s) and describe what you see."
+    )
 
 
-def what_is_this(image_path: str) -> str:
-    """Identify the main subject of an image."""
-    prompt = "What is the main subject of this image? Identify it in one sentence."
-    return analyze_image(image_path, prompt)
-
-
-# =============================================================================
-# STATUS
-# =============================================================================
-
-def video_status() -> str:
-    """Check video recognition status."""
-    return f"""
-🎬 BRO VIDEO RECOGNITION
-{'='*50}
-
-Dependencies:
-  • OpenCV: {'✅ Available' if CV2_AVAILABLE else '❌ Install: pip install opencv-python'}
-  • PIL: {'✅ Available' if PIL_AVAILABLE else '❌ Install: pip install Pillow'}
-  • Vision Model: {VISION_MODEL}
-
-Commands:
-  • see("screen") - Analyze current screen
-  • see("webcam") - Analyze webcam
-  • see("path/to/video.mp4") - Analyze video
-  • see("path/to/image.jpg") - Analyze image
-  
-  • analyze_video(path) - Detailed video analysis
-  • detect_objects(path) - List objects
-  • read_text(path) - OCR/text extraction
-  • describe_person(path) - Describe people
-  
-  • watch_screen(interval=5, duration=30) - Monitor screen
-  • watch_webcam(interval=3, duration=30) - Monitor webcam
-"""
-
-
-# =============================================================================
-# CLI
-# =============================================================================
-
-if __name__ == "__main__":
-    import argparse
-    
-    parser = argparse.ArgumentParser(description="BRO Video Recognition")
-    parser.add_argument("command", nargs="?", default="status",
-                       choices=["status", "screen", "webcam", "analyze", "objects", "text"])
-    parser.add_argument("path", nargs="?", default=None)
-    parser.add_argument("--prompt", "-p", default=None)
-    
-    args = parser.parse_args()
-    
-    if args.command == "status":
-        print(video_status())
-    elif args.command == "screen":
-        print(see("screen", args.prompt))
-    elif args.command == "webcam":
-        print(see("webcam", args.prompt))
-    elif args.command == "analyze" and args.path:
-        print(see(args.path, args.prompt))
-    elif args.command == "objects" and args.path:
-        print(detect_objects(args.path))
-    elif args.command == "text" and args.path:
-        print(read_text(args.path))
-    else:
-        print(video_status())
+def video_status() -> dict:
+    """Get video recognition capabilities status."""
+    return {
+        "opencv_available": True,  # cv2 is always available if we got here
+        "ytdlp_available": YTDLP_AVAILABLE,
+        "ollama_client_available": OLLAMA_CLIENT_AVAILABLE,
+        "vision_model": VISION_MODEL,
+    }
