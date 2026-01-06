@@ -33,7 +33,9 @@ SCREENSHOT_MAX_SIZE = 1024  # Max dimension for vision analysis
 # =============================================================================
 WAKE_WORD_ENABLED = os.getenv("WAKE_WORD_ENABLED", "false").lower() == "true"
 WAKE_WORD_PHRASES = ["BRO", "hey BRO", "okay BRO"]
+WAKE_WORD = WAKE_WORD_PHRASES[0]
 WAKE_WORD_TIMEOUT = 2  # Seconds to listen for wake word
+MIC_DEVICE_INDEX = None  # None = Default input device
 
 # =============================================================================
 # ENHANCED TTS SETTINGS (NEW)
@@ -41,6 +43,8 @@ WAKE_WORD_TIMEOUT = 2  # Seconds to listen for wake word
 TTS_ENGINE = os.getenv("TTS_ENGINE", "edge")  # "pyttsx3", "edge", or "auto"
 TTS_VOICE_PYTTSX3 = os.getenv("TTS_VOICE", "david")  # Windows voice name
 TTS_VOICE_EDGE = os.getenv("TTS_VOICE_EDGE", "en-IN-PrabhatNeural")  # Unified Voice (Prabhat)
+TTS_RATE = int(os.getenv("TTS_RATE", "200"))
+TTS_VOLUME = float(os.getenv("TTS_VOLUME", "1.0"))
 
 TTS_CACHE_ENABLED = True
 

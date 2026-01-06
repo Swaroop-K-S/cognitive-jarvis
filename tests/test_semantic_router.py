@@ -3,7 +3,8 @@ import os
 import unittest
 
 # Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add project root to path
+# sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from jarvis.cognitive.semantic_router import get_semantic_router
 from jarvis.cognitive import CognitiveAction

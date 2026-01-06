@@ -3,9 +3,9 @@ import os
 import unittest
 
 # Add project root to path (one level up from this file)
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from llm.cognitive_brain import CognitiveBrain
+from jarvis.llm.cognitive_brain import CognitiveBrain
 
 class TestLocalBrain(unittest.TestCase):
     def setUp(self):

@@ -2,7 +2,7 @@
 Run the 3 Pro Tests from the Implementation Plan
 """
 import sys
-sys.path.insert(0, '.')
+# sys.path.insert(0, '.') # No longer needed with installed package
 
 print("=" * 60)
 print("RUNNING PRO FEATURE TESTS")
@@ -18,10 +18,14 @@ print('Command: "Make a note that I\'m out of milk."')
 print('Expected: Semantic Engine triggers REMEMBER (not in keyword list)')
 print()
 
-from cognitive.semantic_router import semantic_route, Intent
+from jarvis.cognitive import CognitiveAction as Intent
+from jarvis.cognitive.semantic_router import get_semantic_router
 
 test_input = "Make a note that I'm out of milk"
-intent, confidence, reasoning = semantic_route(test_input)
+# Using the class-based router
+router = get_semantic_router()
+intent, confidence = router.route(test_input)
+reasoning = "N/A (using vector router)"
 
 if intent == Intent.REMEMBER:
     print(f"✅ PASS: Intent = {intent.value} (confidence: {confidence:.2f})")
@@ -41,38 +45,39 @@ print(f"   Keyword fallback would have worked: {keyword_found}")
 print()
 
 # ==============================================================================
-# TEST 2: The "Complexity" Test (TOML Parser)
+# TEST 2: The "Complexity" Test (JSON Tool Parser)
 # ==============================================================================
-print("TEST 2: The 'Complexity' Test")
+print("TEST 2: The 'Complexity' Test (JSON Parser)")
 print("-" * 40)
 print('Command: "Write a python script that prints \'Hello (World)\'"')
-print('Expected: TOML parser handles parentheses correctly')
+print('Expected: JSON parser handles parentheses correctly')
 print()
 
-# Simulate a TOML response with parentheses
-toml_response = '''```toml
-[response]
-thought = "User wants a Python script"
-tool = "write_file"
-response = "Creating your Python script now."
-
-[args]
-filename = "hello.py"
-content = "print('Hello (World)')"
+# Simulate a JSON response with parentheses
+json_response = '''```json
+{
+  "thought": "User wants a Python script",
+  "tool": "write_file",
+  "args": {
+    "filename": "hello.py",
+    "content": "print('Hello (World)')"
+  },
+  "response": "Creating your Python script now."
+}
 ```'''
 
-from llm.cognitive_brain import CognitiveBrain
+from jarvis.llm.cognitive_brain import CognitiveBrain
 brain = CognitiveBrain()
 
-# Test TOML extraction
-toml_content = brain._extract_toml_block(toml_response)
-parsed = brain._parse_toml_response(toml_content)
+# Test JSON extraction
+parsed = brain._extract_json_block(json_response)
+# parsed is already a dict (or None)
 
 if parsed and parsed.get('args', {}).get('content') == "print('Hello (World)')":
-    print("✅ PASS: TOML parser correctly extracted content with parentheses")
+    print("✅ PASS: JSON parser correctly extracted content with parentheses")
     print(f"   Parsed args: {parsed.get('args')}")
 else:
-    print("❌ FAIL: TOML parser failed")
+    print("❌ FAIL: JSON parser failed")
     print(f"   Got: {parsed}")
 
 # Show that regex would FAIL on this
@@ -92,10 +97,11 @@ print()
 # ==============================================================================
 print("TEST 3: The 'Speed' Test (Code Verification)")
 print("-" * 40)
-print('Expected: android_control.py has smart_tap with XML-first approach')
+print('Expected: android_control.py has smart_tap with XML-first optimization')
 print()
 
-with open('tools/android_control.py', 'r', encoding='utf-8') as f:
+# Path updated to reflect package structure
+with open('jarvis/tools/android_control.py', 'r', encoding='utf-8') as f:
     android_code = f.read()
 
 has_xml_dump = '_get_ui_hierarchy' in android_code
