@@ -1,6 +1,6 @@
-# JARVIS V2.2 (Project GLASS-HUD)
+# JARVIS V2.3 (Project GLASS-HUD)
 
-The "BRO" AI Assistant is now a complete Desktop environment.
+The "BRO" AI Assistant is now a complete Desktop & Lifestyle environment.
 
 ## 🚀 Quick Start
 Run the new UI:
@@ -9,12 +9,15 @@ python ui/main_window.py
 ```
 
 ## ✨ New Features
-1.  **Productivity Suite** (New in v2.2):
+1.  **Lifestyle Suite** (New in v2.3):
+    *   **Calendar**: Visual scheduler.
+    *   **Shopping**: Product tracker.
+    *   **Phone**: Integrated dialer & logs.
+2.  **Productivity Suite** (v2.2):
     *   **Notes**: Auto-saving markdown notebook.
     *   **Music**: Local audio player.
     *   **Settings**: Hot-swap AI models & personas.
-    *   **Phone Control**: Android integration.
-2.  **GLASS-HUD UI**: Modern "Midnight Teal" interface with strict modularity.
+3.  **GLASS-HUD UI**: Modern "Midnight Teal" interface.
     *   **Chat**: Threaded, typing effects, markdown-ready.
     *   **Dashboard**: Live system monitoring (CPU/RAM graphs).
     *   **Vision**: Visual Cortex control panel + **Auto Copilot** (Autonomous Screen Agent).

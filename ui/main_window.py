@@ -14,6 +14,9 @@ from jarvis.ui.pages.web_page import WebPage
 from jarvis.ui.pages.notes_page import NotesPage
 from jarvis.ui.pages.settings_page import SettingsPage
 from jarvis.ui.pages.music_page import MusicPage
+from jarvis.ui.pages.calendar_page import CalendarPage
+from jarvis.ui.pages.shopping_page import ShoppingPage
+from jarvis.ui.pages.phone_page import PhonePage
 from jarvis.llm.cognitive_brain import CognitiveBrain
 import threading
 
@@ -59,6 +62,9 @@ class MainWindow(ctk.CTk):
         self.pages["notes"] = NotesPage(self.main_area)
         self.pages["settings"] = SettingsPage(self.main_area)
         self.pages["music"] = MusicPage(self.main_area)
+        self.pages["calendar"] = CalendarPage(self.main_area)
+        self.pages["shopping"] = ShoppingPage(self.main_area)
+        self.pages["phone"] = PhonePage(self.main_area)
         
     def navigate(self, page_name):
         if page_name == "mini_mode":
