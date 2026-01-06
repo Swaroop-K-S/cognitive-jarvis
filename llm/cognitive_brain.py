@@ -10,19 +10,14 @@ import re
 from typing import Dict, Any, List, Optional
 import urllib.request
 
-try:
-    import google.generativeai as genai
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
-    genai = None
+# Gemini Removed - Local Only Mode
 
-from config import SYSTEM_PROMPT, GEMINI_API_KEY, GEMINI_MODEL, OLLAMA_HOST
-from tools import execute_tool
-from tools.registry import tool_requires_confirmation, get_all_tools
+from jarvis.config import SYSTEM_PROMPT, OLLAMA_HOST
+from jarvis.tools import execute_tool
+from jarvis.tools.registry import tool_requires_confirmation, get_all_tools
 from .model_selector import ModelSelector, TaskType, get_task_emoji, MODELS
-from cognitive import CognitiveEngine, CognitiveAction, get_action_emoji
-from memory import get_memory, CHROMADB_AVAILABLE
+from jarvis.cognitive import CognitiveEngine, CognitiveAction, get_action_emoji
+from jarvis.memory import get_memory, CHROMADB_AVAILABLE
 
 
 class CognitiveBrain:
@@ -46,11 +41,7 @@ class CognitiveBrain:
         self.memory = get_memory() if CHROMADB_AVAILABLE else None
         
         # Initialize Gemini
-        if GEMINI_AVAILABLE and GEMINI_API_KEY:
-            genai.configure(api_key=GEMINI_API_KEY)
-            self.gemini_model = genai.GenerativeModel(GEMINI_MODEL)
-        else:
-            self.gemini_model = None
+        # Gemini Removed - Local Only
         
         # Build system prompt
         self.system_prompt = self._build_system_prompt()
@@ -89,21 +80,20 @@ TOOL_CALL: tool_name(arg1="value1")
             return False
     
     def is_available(self) -> bool:
-        return (self.gemini_model and self.check_internet()) or self.check_ollama()
+        return self.check_ollama()
     
     def get_status(self) -> Dict[str, Any]:
         internet = self.check_internet()
         ollama = self.check_ollama()
-        gemini = bool(self.gemini_model) and internet
+        # gemini removed
         memory_stats = self.cognitive.get_memory_stats()
         
         return {
             "internet": internet,
-            "gemini_available": gemini,
             "ollama_available": ollama,
             "memory_available": memory_stats.get("available", False),
             "memory_count": memory_stats.get("total", 0),
-            "active_mode": "gemini" if gemini else ("ollama" if ollama else "none"),
+            "active_mode": "ollama" if ollama else "none",
             "current_model": self.selector.current_model
         }
     
@@ -164,10 +154,7 @@ TOOL_CALL: tool_name(arg1="value1")
         else:
             enhanced_prompt = user_input
         
-        if gemini_ready:
-            self.current_mode = "gemini"
-            return self._call_gemini(enhanced_prompt)
-        elif ollama_ready:
+        if ollama_ready:
             self.current_mode = "ollama"
             # Select best model for task
             model_spec, task_type = self.selector.select_model(user_input)
@@ -175,18 +162,10 @@ TOOL_CALL: tool_name(arg1="value1")
             self.selector.ensure_model_loaded(model_spec.name)
             return self._call_ollama(enhanced_prompt, model_spec.name)
         
-        return "No AI available. Setup Gemini or Ollama."
+        return "No AI available. Is Ollama running?"
     
-    def _call_gemini(self, prompt: str) -> str:
-        try:
-            full_prompt = f"{self.system_prompt}\n\n{prompt}"
-            response = self.gemini_model.generate_content(full_prompt)
-            return response.text
-        except Exception as e:
-            if self.check_ollama():
-                self.current_mode = "ollama"
-                return self._call_ollama(prompt, "llama3.2")
-            return f"Error: {e}"
+    # Gemini method removed
+
     
     def _call_ollama(self, prompt: str, model: str) -> str:
         try:
@@ -284,24 +263,24 @@ TOOL_CALL: tool_name(arg1="value1")
     def _extract_and_execute_tools(self, response: str) -> List[str]:
         """
         Extract and execute tool calls from the response.
-        Uses TOML parsing first (robust), falls back to regex (legacy).
+        Uses JSON parsing first (robust), falls back to regex (legacy).
         """
         results = []
         
         # =====================================================================
-        # METHOD 1: TOML PARSING (Robust - handles special characters)
+        # METHOD 1: JSON PARSING (Robust - handles special characters)
         # =====================================================================
         try:
-            # Try to find TOML block in response
-            toml_content = self._extract_toml_block(response)
-            if toml_content:
-                parsed = self._parse_toml_response(toml_content)
-                if parsed:
-                    tool_results = self._execute_parsed_tools(parsed)
-                    if tool_results:
-                        return tool_results
+            # Try to find JSON block in response
+            parsed = self._extract_json_block(response)
+            if parsed:
+                # DEBUG: Print parsed JSON
+                # print(f"    🧩 Parsed JSON: {parsed}")
+                tool_results = self._execute_parsed_tools(parsed)
+                if tool_results:
+                    return tool_results
         except Exception as e:
-            print(f"    ⚠️ TOML parse failed, trying regex fallback: {e}")
+            print(f"    ⚠️ JSON parse failed, trying regex fallback: {e}")
         
         # =====================================================================
         # METHOD 2: REGEX FALLBACK (Legacy - for backward compatibility)
@@ -345,111 +324,77 @@ TOOL_CALL: tool_name(arg1="value1")
             
         return results
     
-    def _extract_toml_block(self, response: str) -> str:
-        """Extract TOML content from response (handles ```toml blocks)."""
-        # Try to find ```toml ... ``` block
+    def _extract_json_block(self, response: str) -> dict:
+        """Extract and parse JSON content from response."""
+        import json
+        
+        # 1. Try to find ```json ... ``` block
         import re
-        toml_match = re.search(r'```toml\s*(.*?)\s*```', response, re.DOTALL)
-        if toml_match:
-            return toml_match.group(1).strip()
+        json_match = re.search(r'```json\s*(.*?)\s*```', response, re.DOTALL)
+        content_to_parse = ""
         
-        # If no block markers, try to find [response] section directly
-        if '[response]' in response:
-            start = response.find('[response]')
-            # Find where TOML ends (next non-TOML content or end)
-            return response[start:].strip()
-        
-        return ""
-    
-    def _parse_toml_response(self, toml_str: str) -> dict:
-        """Parse TOML string into structured dict."""
-        try:
-            # Python 3.11+ has tomllib built-in
-            import tomllib
-            return tomllib.loads(toml_str)
-        except ImportError:
-            # Fallback for older Python
+        if json_match:
+            content_to_parse = json_match.group(1).strip()
+        else:
+            # 2. Try to find raw JSON object { ... }
+            # usage of regex to find the first { and last } might be fragile but works for most LLM outputs
+            json_match = re.search(r'(\{.*\})', response, re.DOTALL)
+            if json_match:
+                content_to_parse = json_match.group(1).strip()
+            # 3. If it looks like a simple dict
+            elif response.strip().startswith('{') and response.strip().endswith('}'):
+                content_to_parse = response.strip()
+
+        if content_to_parse:
             try:
-                import tomli
-                return tomli.loads(toml_str)
-            except ImportError:
-                # Manual minimal TOML parsing for our specific format
-                return self._simple_toml_parse(toml_str)
-    
-    def _simple_toml_parse(self, toml_str: str) -> dict:
-        """Minimal TOML parser for our specific format."""
-        result = {"response": {}, "args": {}, "tools": []}
-        current_section = None
-        current_tool = None
-        
-        for line in toml_str.strip().split('\n'):
-            line = line.strip()
-            if not line or line.startswith('#'):
-                continue
-            
-            # Section headers
-            if line == '[response]':
-                current_section = 'response'
-                current_tool = None
-            elif line == '[args]':
-                current_section = 'args'
-                current_tool = None
-            elif line == '[[tools]]':
-                current_tool = {}
-                result['tools'].append(current_tool)
-                current_section = 'tools'
-            elif '=' in line:
-                # Key-value pair
-                key, value = line.split('=', 1)
-                key = key.strip()
-                value = value.strip().strip('"\'')
+                # Attempt to fix common LLM JSON errors if strictly needed, 
+                # but Llama 3 is usually good at valid JSON.
+                return json.loads(content_to_parse)
+            except json.JSONDecodeError:
+                pass
                 
-                if current_section == 'tools' and current_tool is not None:
-                    current_tool[key] = value
-                elif current_section == 'response':
-                    result['response'][key] = value
-                elif current_section == 'args':
-                    result['args'][key] = value
-        
-        return result
+        return None
     
     def _execute_parsed_tools(self, parsed: dict) -> List[str]:
-        """Execute tools from parsed TOML structure."""
+        """Execute tools from parsed JSON structure."""
         results = []
         
         # Single tool case
-        response_data = parsed.get('response', parsed)
-        tool_name = response_data.get('tool', '')
+        # In JSON format: {"tool": "name", "args": {...}}
+        tool_name = parsed.get('tool', '')
         args = parsed.get('args', {})
         
         if tool_name and tool_name.strip():
-            if tool_requires_confirmation(tool_name):
-                if self.confirmation_callback:
-                    if not self.confirmation_callback(tool_name, args):
-                        return [f"Cancelled: {tool_name}"]
-            results.append(execute_tool(tool_name, args))
+            # If tool_name is actually a dict (misinterpretation), skip
+            if isinstance(tool_name, str):
+                if tool_requires_confirmation(tool_name):
+                    if self.confirmation_callback:
+                        if not self.confirmation_callback(tool_name, args):
+                            return [f"Cancelled: {tool_name}"]
+                results.append(execute_tool(tool_name, args))
         
         # Multiple tools case
+        # In JSON format: {"tools": [{"name": "...", "args": {...}}]}
         tools_list = parsed.get('tools', [])
         for tool_data in tools_list:
-            tool_name = tool_data.pop('name', None)
+            tool_name = tool_data.get('name') # Use .get() not .pop() to be safe
+            tool_args = tool_data.get('args', {})
+            
             if tool_name:
                 if tool_requires_confirmation(tool_name):
                     if not self.confirmation_callback(tool_name, tool_data):
                         results.append(f"Cancelled: {tool_name}")
                         continue
-                results.append(execute_tool(tool_name, tool_data))
+                results.append(execute_tool(tool_name, tool_args))
         
         return results
     
     def get_spoken_response(self, response: str) -> str:
-        """Extract just the spoken response from TOML output."""
+        """Extract just the spoken response from JSON output."""
         try:
-            toml_content = self._extract_toml_block(response)
-            if toml_content:
-                parsed = self._parse_toml_response(toml_content)
-                if parsed:
-                    return parsed.get('response', {}).get('response', response)
+            parsed = self._extract_json_block(response)
+            if parsed:
+                return parsed.get('response', response)
         except:
             pass
         return response
@@ -462,6 +407,4 @@ TOOL_CALL: tool_name(arg1="value1")
         return self.current_mode or "none"
     
     def get_current_model(self) -> str:
-        if self.current_mode == "gemini":
-            return GEMINI_MODEL
         return self.selector.current_model or "none"

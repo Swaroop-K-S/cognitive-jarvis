@@ -23,7 +23,7 @@ import subprocess
 from typing import Optional, Tuple, List
 from io import BytesIO
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 # =============================================================================
 # DEPENDENCY CHECKS
@@ -656,7 +656,7 @@ If not found, reply: NOT_FOUND"""
         
         try:
             payload = json.dumps({
-                "model": "moondream",  # Lightweight vision model
+                "model": "llava",  # Use LLaVA (7B) for better accuracy
                 "messages": [{
                     "role": "user",
                     "content": prompt,

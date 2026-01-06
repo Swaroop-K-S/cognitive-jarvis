@@ -89,27 +89,18 @@ class CognitiveEngine:
         """
         # Try semantic routing first (more intelligent)
         try:
-            from .semantic_router import get_semantic_router, Intent
+            from .semantic_router import get_semantic_router
             router = get_semantic_router()
             
-            if router.is_available():
-                intent, confidence, reasoning = router.route(user_input)
+            # SemanticRouter returns (Action, Confidence)
+            action, confidence = router.route(user_input)
+            
+            if action:
+                return action, f"🧠 Semantic Match: {action.value.upper()} ({confidence:.2f})"
                 
-                # Map Intent enum to CognitiveAction
-                action_map = {
-                    Intent.REMEMBER: CognitiveAction.REMEMBER,
-                    Intent.RECALL: CognitiveAction.RECALL,
-                    Intent.ACT: CognitiveAction.ACT,
-                    Intent.CODE: CognitiveAction.CODE,
-                    Intent.CHAT: CognitiveAction.CHAT,
-                }
-                
-                action = action_map.get(intent, CognitiveAction.CHAT)
-                return action, f"🧠 Semantic: {reasoning}"
-        except ImportError:
-            pass  # sentence-transformers not installed, expected fallback
         except Exception as e:
-            print(f"    ⚠️ Semantic router error: {e}")  # Log unexpected errors
+            # print(f"    ⚠️ Router Error: {e}")
+            pass
         
         # Fallback: Keyword-based routing
         return self._keyword_decide(user_input)

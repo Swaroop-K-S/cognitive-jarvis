@@ -10,40 +10,21 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # =============================================================================
-# GEMINI SETTINGS (Online Mode - High Intelligence)
+# OLLAMA SETTINGS (Offline Mode - Privacy)
 # =============================================================================
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")  # Fast & capable
+# Removed Gemini Online Mode - Focusing on Local Only
+
 
 # =============================================================================
 # OLLAMA SETTINGS (Offline Mode - Privacy)
 # =============================================================================
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3")  # Upgraded to Llama 3 (8B)
-
-# =============================================================================
-# VOICE SETTINGS
-# =============================================================================
-WAKE_WORD = "BRO"
-TTS_RATE = 175  # Words per minute
-TTS_VOLUME = 1.0  # 0.0 to 1.0
-VOICE_INPUT_ENABLED = True  # Enable microphone input
-MIC_DEVICE_INDEX = None  # None = Default. Set to integer (e.g., 1) to force specific device.
-
-# =============================================================================
-# SAFETY SETTINGS
-# =============================================================================
-REQUIRE_CONFIRMATION_FOR = [
-    "delete",
-    "remove", 
-    "uninstall",
-    "format",
-]
-
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1")  # Llama 3.1 (8B) - High Intelligence
+# ...
 # =============================================================================
 # VISION SETTINGS (NEW - Local via Ollama LLaVA)
 # =============================================================================
-VISION_MODEL = os.getenv("VISION_MODEL", "moondream")  # Optimized for speed (1.6B)
+VISION_MODEL = os.getenv("VISION_MODEL", "llava")  # LLaVA (7B) - High Detail
 VISION_ENABLED = True
 SCREENSHOT_MAX_SIZE = 1024  # Max dimension for vision analysis
 
@@ -105,42 +86,42 @@ SAFETY RULES:
 - NEVER execute delete/remove operations without asking first
 - ALWAYS inform the user what action you're about to take
 
-=== RESPONSE FORMAT (CRITICAL - USE TOML) ===
+=== RESPONSE FORMAT (CRITICAL - USE JSON) ===
 
-You MUST respond in this TOML format ONLY:
+You MUST respond in this JSON format ONLY (valid pure JSON, no markdown blocks if possible, but markdown ```json is acceptable if needed):
 
-```toml
-[response]
-thought = "Brief reasoning about what user wants"
-tool = "tool_name"
-response = "What to say to user"
+{
+  "thought": "Brief reasoning about what user wants",
+  "tool": "tool_name",
+  "args": {
+    "arg_name": "value"
+  },
+  "response": "What to say to user"
+}
 
-[args]
-arg_name = "value"
-```
-
-For multiple tools:
-```toml
-[response]
-thought = "Need to do multiple things"
-response = "Opening Chrome and typing the message."
-
-[[tools]]
-name = "open_application"
-app_name = "chrome"
-
-[[tools]]
-name = "type_text"
-text = "hello world"
-```
+For multiple tools (use an array of tool objects in 'tools' field):
+{
+  "thought": "Need to do multiple things",
+  "response": "Opening Chrome and typing the message.",
+  "tools": [
+    {
+      "name": "open_application",
+      "args": {"app_name": "chrome"}
+    },
+    {
+      "name": "type_text",
+      "args": {"text": "hello world"}
+    }
+  ]
+}
 
 If NO tool is needed (just chatting):
-```toml
-[response]
-thought = "User is just chatting"
-tool = ""
-response = "Your conversational response here"
-```
+{
+  "thought": "User is just chatting",
+  "tool": "",
+  "args": {},
+  "response": "Your conversational response here"
+}
 
 AVAILABLE TOOLS:
 

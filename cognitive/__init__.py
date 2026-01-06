@@ -4,10 +4,10 @@ Provides the Think-Decide-Remember-Act loop with semantic routing.
 """
 
 from .engine import CognitiveEngine, CognitiveAction, CognitiveDecision, get_action_emoji
-from .semantic_router import SemanticRouter, Intent, get_semantic_router, semantic_route
+from .semantic_router import SemanticRouter, get_semantic_router
 
 __all__ = [
     "CognitiveEngine", "CognitiveAction", "CognitiveDecision", "get_action_emoji",
-    "SemanticRouter", "Intent", "get_semantic_router", "semantic_route",
+    "SemanticRouter", "get_semantic_router",
 ]
 
