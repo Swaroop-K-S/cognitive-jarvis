@@ -1,6 +1,6 @@
-# JARVIS V2 (Project GLASS-HUD)
+# JARVIS V2.2 (Project GLASS-HUD)
 
-The "BRO" AI Assistant has been upgraded to a modular, local-first architecture.
+The "BRO" AI Assistant is now a complete Desktop environment.
 
 ## 🚀 Quick Start
 Run the new UI:
@@ -9,17 +9,24 @@ python ui/main_window.py
 ```
 
 ## ✨ New Features
-1.  **GLASS-HUD UI**: Modern "Midnight Teal" interface with strict modularity.
+1.  **Productivity Suite** (New in v2.2):
+    *   **Notes**: Auto-saving markdown notebook.
+    *   **Music**: Local audio player.
+    *   **Settings**: Hot-swap AI models & personas.
+    *   **Phone Control**: Android integration.
+2.  **GLASS-HUD UI**: Modern "Midnight Teal" interface with strict modularity.
     *   **Chat**: Threaded, typing effects, markdown-ready.
     *   **Dashboard**: Live system monitoring (CPU/RAM graphs).
-    *   **Vision**: Visual Cortex control panel.
+    *   **Vision**: Visual Cortex control panel + **Auto Copilot** (Autonomous Screen Agent).
     *   **Web**: Neural browser interface.
 2.  **Cognitive Brain**:
-    *   **Semantic Router**: Uses vector embeddings (`nomic-embed-text`) to route intents (Remember vs Act vs Chat).
+    *   **Semantic Router**: Uses vector embeddings to route intents.
+    *   **Memory**: ChromaDB-backed long-term memory.
     *   **Local Logic**: `llama3.1` (8B) as the core reasoning engine.
 3.  **High-Speed I/O**:
-    *   **Hearing**: `Faster-Whisper` for ~0.5s speech recognition.
-    *   **Vision**: `LLaVA` (7B) for image analysis + `UIAutomator` (XML) for 6x faster Android control.
+    *   **Hearing**: `Faster-Whisper` + **Real-Time Spectral Visualization**.
+    *   **Vision**: `LLaVA` (7B) for image analysis.
+    *   **Call Sentry**: AI Phone Screening server (FastAPI + Twilio).
 4.  **Package Architecture**:
     *   Full python package (`pip install -e .`).
     *   Robust JSON tool parsing.

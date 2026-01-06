@@ -11,6 +11,9 @@ from jarvis.ui.pages.chat_page import ChatPage
 from jarvis.ui.pages.dashboard_page import DashboardPage
 from jarvis.ui.pages.vision_page import VisionPage
 from jarvis.ui.pages.web_page import WebPage
+from jarvis.ui.pages.notes_page import NotesPage
+from jarvis.ui.pages.settings_page import SettingsPage
+from jarvis.ui.pages.music_page import MusicPage
 from jarvis.llm.cognitive_brain import CognitiveBrain
 import threading
 
@@ -21,7 +24,7 @@ class MainWindow(ctk.CTk):
         # Setup
         apply_theme(self)
         self.title("BRO AI - GLASS HUD")
-        self.geometry("1280x800")
+        self.geometry("1400x900") # Slightly larger for pro apps
         
         # Initialize Brain (Lazy load or threading recommended for speed, but init here for now)
         self.brain = CognitiveBrain()
@@ -51,8 +54,11 @@ class MainWindow(ctk.CTk):
     def _init_pages(self):
         self.pages["chat"] = ChatPage(self.main_area, self.handle_chat_message)
         self.pages["dashboard"] = DashboardPage(self.main_area)
-        self.pages["vision"] = VisionPage(self.main_area)
+        self.pages["vision"] = VisionPage(self.main_area, self.brain)
         self.pages["web"] = WebPage(self.main_area)
+        self.pages["notes"] = NotesPage(self.main_area)
+        self.pages["settings"] = SettingsPage(self.main_area)
+        self.pages["music"] = MusicPage(self.main_area)
         
     def navigate(self, page_name):
         if page_name == "mini_mode":

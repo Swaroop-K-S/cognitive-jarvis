@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from jarvis.ui.theme import COLORS, FONTS
 from jarvis.ui.components.voice_visualizer import VoiceVisualizer
+from jarvis.voice.audio_stream import AudioStreamAnalyzer
 
 class ChatPage(ctk.CTkFrame):
     def __init__(self, parent, send_callback):
@@ -14,6 +15,10 @@ class ChatPage(ctk.CTkFrame):
         self._create_header()
         self._create_chat_area()
         self._create_input_area()
+        
+        # Audio Stream
+        self.audio_stream = AudioStreamAnalyzer()
+        self.visualizer.attach_stream(self.audio_stream)
         
     def _create_header(self):
         head = ctk.CTkFrame(self, height=50, fg_color="transparent")
@@ -121,8 +126,15 @@ class ChatPage(ctk.CTkFrame):
 
     def toggle_mic(self):
         # Visual toggle, logic handled in controller
-        self.visualizer.set_active(not self.visualizer.active)
-        pass
+        active = not self.visualizer.active
+        self.visualizer.set_active(active)
+        
+        if active:
+            self.mic_btn.configure(fg_color=COLORS["text_error"])
+            self.audio_stream.start()
+        else:
+            self.mic_btn.configure(fg_color=COLORS["mic_inactive"])
+            self.audio_stream.stop()
         
     def clear_chat(self):
         for widget in self.chat_scroll.winfo_children():

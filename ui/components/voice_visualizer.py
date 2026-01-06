@@ -12,12 +12,16 @@ class VoiceVisualizer(ctk.CTkCanvas):
         self.values = [10] * self.bars
         self.width_val = width
         self.height_val = height
+        self.data_source = None
         
         self.after(50, self._animate)
         
     def set_active(self, active: bool):
         self.active = active
         
+    def attach_stream(self, stream_analyzer):
+        self.data_source = stream_analyzer
+
     def _animate(self):
         if not self.winfo_exists(): return
         
@@ -27,19 +31,32 @@ class VoiceVisualizer(ctk.CTkCanvas):
         bar_w = (self.width_val / self.bars) - 2
         center_y = self.height_val / 2
         
+        # Get Real Data
+        target_levels = [5] * self.bars
+        if self.active and self.data_source:
+            try:
+                target_levels = self.data_source.get_levels()
+                # Ensure length match
+                if len(target_levels) != self.bars:
+                    target_levels = [5] * self.bars 
+            except:
+                pass
+        
         for i in range(self.bars):
             # Target height
-            if self.active:
-                # Simulate voice wave (sine wave + noise)
-                t = (i / self.bars) * math.pi * 2
-                noise = random.randint(5, 25)
-                h = 10 + (math.sin(t + getattr(self, '_tick', 0)) * 10) + noise
+            if self.active and self.data_source:
+                h = max(5, target_levels[i])
+            elif self.active:
+                # Fallback noise
+                 t = (i / self.bars) * math.pi * 2
+                 noise = random.randint(5, 25)
+                 h = 10 + (math.sin(t + getattr(self, '_tick', 0)) * 10) + noise
             else:
                 # Idle ripple
                 h = 5 + random.randint(0, 3)
             
             # Smoothing
-            self.values[i] = (self.values[i] * 0.6) + (h * 0.4)
+            self.values[i] = (self.values[i] * 0.5) + (h * 0.5)
             current_h = self.values[i]
             
             x = i * (bar_w + 2) + 2

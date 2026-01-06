@@ -4,9 +4,18 @@ from PIL import Image
 from jarvis.ui.theme import COLORS, FONTS
 
 class VisionPage(ctk.CTkFrame):
-    def __init__(self, parent):
+    def __init__(self, parent, brain=None):
         super().__init__(parent, fg_color="transparent")
         
+        self.brain = brain
+        # Init autonomous copilot if brain available
+        if self.brain:
+            try:
+                from jarvis.tools.screen_copilot import get_copilot
+                get_copilot(self.brain)
+            except Exception as e:
+                print(f"Copilot Init Error: {e}")
+
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1) # Result expands
         
@@ -34,6 +43,13 @@ class VisionPage(ctk.CTkFrame):
                                fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"], font=FONTS["body_bold"],
                                command=lambda: self.run_vision("ocr"))
         btn_ocr.pack(side="left")
+
+        # Auto Toggle
+        self.copilot_var = ctk.StringVar(value="off")
+        self.switch_copilot = ctk.CTkSwitch(ctrl, text="🤖 AUTO COPILOT", variable=self.copilot_var,
+                                            onvalue="on", offvalue="off", font=FONTS["body_bold"],
+                                            command=self.toggle_copilot)
+        self.switch_copilot.pack(side="right", padx=20)
         
     def _create_display_area(self):
         # Preview Image
@@ -98,3 +114,19 @@ class VisionPage(ctk.CTkFrame):
     def _update_result(self, text):
         self.txt_result.delete("0.0", "end")
         self.txt_result.insert("0.0", text)
+
+    def toggle_copilot(self):
+        val = self.copilot_var.get()
+        self.txt_result.delete("0.0", "end")
+        
+        try:
+            from jarvis.tools.screen_copilot import enable_screen_copilot, disable_screen_copilot
+            
+            if val == "on":
+                msg = enable_screen_copilot()
+                self.txt_result.insert("0.0", f"CAPTURING...\n{msg}\n\n(I am now watching the screen in the background)")
+            else:
+                msg = disable_screen_copilot()
+                self.txt_result.insert("0.0", msg)
+        except Exception as e:
+            self.txt_result.insert("0.0", f"Error toggling copilot: {e}")
