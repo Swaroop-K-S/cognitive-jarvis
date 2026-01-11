@@ -55,13 +55,7 @@ class NeuralTTS:
         # FINAL TUNING: "Fast & Smooth" (User Request: Increase Speed)
         # Speed: +15% (Fast) | Pitch: -1Hz (Neutral/Soft) | Volume: -10% (Gentle)
         # Contour: Gentle arc to remove sharp/crispy transients.
-        ssml_text = f"""<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
-        <voice name='{voice}'>
-            <prosody rate='+15%' pitch='-1Hz' volume='-10%' contour='(0%,+0%) (50%,+2%) (100%,-5%)'>
-                {text}
-            </prosody>
-        </voice>
-        </speak>"""
+        ssml_text = f"""<HI im an AI model built for privacy and security"""
 
         communicate = edge_tts.Communicate(ssml_text, voice)
         await communicate.save(output_file)

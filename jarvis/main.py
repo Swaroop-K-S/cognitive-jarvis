@@ -7,8 +7,12 @@ import sys
 import os
 from jarvis.ui.main_window import MainWindow
 
+from jarvis.utils.logger import setup_logger
+
+logger = setup_logger("BRO_Main")
+
 def main():
-    print("🚀 Starting BRO GLASS-HUD...")
+    logger.info("🚀 Starting BRO GLASS-HUD...")
     app = MainWindow()
     app.mainloop()
 

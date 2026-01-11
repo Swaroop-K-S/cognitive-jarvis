@@ -48,6 +48,16 @@ from .video_recognition import (
 # Memory Tools
 from .memory_tools import clear_memory
 
+# Communication Tools (NEW)
+from .communication import send_email, send_whatsapp
+
+# Developer Tools (NEW)
+# Developer Tools (NEW)
+from .developer_tools import run_terminal_command, create_python_script, run_python_script
+
+# OpenManus Bridge (NEW)
+from .manus_bridge import run_manus_agent
+
 __all__ = [
     # Registry
     "tool", "get_all_tools", "execute_tool", "get_tools_schema",
@@ -86,5 +96,18 @@ __all__ = [
     "enable_screen_copilot", "disable_screen_copilot", "take_over_screen",
     
     # Memory
+    # Screen Copilot (NEW)
+    "enable_screen_copilot", "disable_screen_copilot", "take_over_screen",
+    
+    # Memory
     "clear_memory",
+
+    # Communication (NEW)
+    "send_email", "send_whatsapp",
+
+    # Developer (NEW)
+    "run_terminal_command", "create_python_script", "run_python_script",
+
+    # OpenManus Bridge (NEW)
+    "run_manus_agent",
 ]

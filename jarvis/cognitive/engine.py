@@ -9,7 +9,10 @@ from typing import Dict, Any, Optional, Tuple
 from enum import Enum
 from dataclasses import dataclass
 
-from memory import get_memory, CHROMADB_AVAILABLE
+from jarvis.memory import get_memory, CHROMADB_AVAILABLE
+from jarvis.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class CognitiveAction(Enum):
@@ -99,10 +102,11 @@ class CognitiveEngine:
                 return action, f"🧠 Semantic Match: {action.value.upper()} ({confidence:.2f})"
                 
         except Exception as e:
-            # print(f"    ⚠️ Router Error: {e}")
+            logger.debug(f"Router Error (Ignored): {e}")
             pass
         
         # Fallback: Keyword-based routing
+        logger.debug("Falling back to keyword routing")
         return self._keyword_decide(user_input)
     
     def _keyword_decide(self, user_input: str) -> Tuple[CognitiveAction, str]:

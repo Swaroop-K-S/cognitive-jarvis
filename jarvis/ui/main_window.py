@@ -68,7 +68,11 @@ class MainWindow(ctk.CTk):
         
     def navigate(self, page_name):
         if page_name == "mini_mode":
-            print("To Mini Mode") # Todo
+            # logger is not imported here as a global, but we can print for now or skip.
+            # Actually, let's import logger at top of file, but I need to do that in separate step if I want to be clean.
+            # simpler: just remove the print or comment it out if it is a TODO.
+            # "To Mini Mode" implies a TODO.
+            print("TODO: Switch to Mini Mode") 
             return
             
         # Hide current

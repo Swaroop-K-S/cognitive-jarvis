@@ -37,9 +37,7 @@ try:
 except ImportError:
     WINAPPS_AVAILABLE = False
 
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import get_app_path
+from jarvis.config import get_app_path
 
 from .registry import tool
 
@@ -102,6 +100,31 @@ APP_PROCESS_MAP = {
 # Cache for discovered apps (name -> path)
 _discovered_apps_cache = {}
 _cache_initialized = False
+
+
+def _sanitize_for_powershell(text: str) -> str:
+    """Sanitize text for inclusion in a PowerShell single-quoted string."""
+    return text.replace("'", "''")
+
+
+def _is_safe_command(cmd: str) -> bool:
+    """Check if a command string contains potentially dangerous shell characters."""
+    # Allow alphanumeric, spaces, hyphens, underscores, periods, colons, slashes
+    # Block & | ; < > $ ` ( ) which are used for chaining/injection
+    import re
+    if not cmd:
+        return True # Empty is safe (noop)
+    
+    # If it's a file path (contains separator), it's likely fine if it exists (checked elsewhere)
+    # But if it's just a command name, we want to be strict.
+    
+    # blocked_chars = r'[&|;<>$`()]'
+    # Actually, simplistic check: if it contains logical operators
+    unsafe_patterns = ["&", "|", ";", "$", "`", "\n", "\r"]
+    for char in unsafe_patterns:
+        if char in cmd:
+            return False
+    return True
 
 
 def _scan_start_menu() -> dict:
@@ -560,6 +583,11 @@ def open_application(app_name: str) -> str:
         
         # Try subprocess as intermediate fallback
         try:
+            # Security Check: Ensure target doesn't contain shell injection characters
+            if not _is_safe_command(target):
+                print(f"⚠️ Security blocked unsafe command: {target}")
+                raise ValueError("Unsafe command characters detected")
+
             result = subprocess.Popen(target, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             time.sleep(1)
             
@@ -611,9 +639,10 @@ def focus_window(window_title: str) -> str:
     Focuses a window by title using PowerShell.
     """
     try:
+        sanitized_title = _sanitize_for_powershell(window_title)
         cmd = f"""
         $w = New-Object -ComObject WScript.Shell
-        $w.AppActivate('{window_title}')
+        $w.AppActivate('{sanitized_title}')
         """
         subprocess.run(["powershell", "-Command", cmd], capture_output=True)
         time.sleep(0.5) # Wait for focus

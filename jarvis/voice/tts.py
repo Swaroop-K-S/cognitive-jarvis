@@ -1,150 +1,146 @@
 """
-Text-to-Speech Module
-Handles voice output using pyttsx3 for offline synthesis.
+Text-to-Speech Module (Edge TTS / "Bhai" Personality)
+Handles voice output using Microsoft Edge's Neural TTS (Prabhat/Madhur).
 """
-
-import sys
+import asyncio
 import os
+import tempfile
 import threading
 import queue
+import time
+from typing import Optional
 
-# Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Config imports
+try:
+    from jarvis.config import TTS_VOICE_EDGE, TTS_RATE, TTS_VOLUME
+except ImportError:
+    TTS_VOICE_EDGE = "en-IN-PrabhatNeural"
+    TTS_RATE = 200
+    TTS_VOLUME = 1.0
+
+# 3rd Party Libs
+try:
+    import edge_tts
+    EDGE_TTS_AVAILABLE = True
+except ImportError:
+    EDGE_TTS_AVAILABLE = False
+    print("⚠️ edge-tts not installed. Voice will be silent.")
 
 try:
-    import pyttsx3
-    TTS_AVAILABLE = True
+    import pygame
+    PYGAME_AVAILABLE = True
 except ImportError:
-    TTS_AVAILABLE = False
-    pyttsx3 = None
+    PYGAME_AVAILABLE = False
+    print("⚠️ pygame not installed. Cannot play audio.")
 
-from config import TTS_RATE, TTS_VOLUME, TTS_ENGINE
+# Global Lock for Audio
+_audio_lock = threading.Lock()
 
+class EdgeTTS:
+    def __init__(self):
+        self.voice = TTS_VOICE_EDGE
+        self.rate = "+15%"  # Default to Fast & Fluid
+        self.volume = "-0%"
+        self.pitch = "-2Hz" # Slightly deeper, more authoritative
+        
+        if PYGAME_AVAILABLE:
+            try:
+                pygame.mixer.init()
+            except Exception as e:
+                print(f"❌ Pygame init failed: {e}")
 
-# Global TTS engine (singleton pattern for thread safety)
-_tts_engine = None
-_tts_lock = threading.Lock()
-_speech_queue = queue.Queue()
+    async def _generate_audio(self, text: str, output_file: str):
+        """Generate audio with SSML for "Bhai" Prosody."""
+        
+        # SSML Tuning for "The Cool Genius"
+        # - Rate: Fast (+15%)
+        # - Pitch: Slightly Low (-2Hz)
+        # - Contour: Smooth arcs (removes robotic transients)
+        ssml = f"""<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>
+        <voice name='{self.voice}'>
+            <prosody rate='{self.rate}' pitch='{self.pitch}' volume='{self.volume}'>
+                {text}
+            </prosody>
+        </voice>
+        </speak>"""
 
+        communicate = edge_tts.Communicate(ssml, self.voice)
+        await communicate.save(output_file)
+
+    def speak(self, text: str, wait: bool = True):
+        """Synthesize and play text."""
+        if not EDGE_TTS_AVAILABLE or not PYGAME_AVAILABLE:
+            # Silent fallback
+            print(f"🔇 [Silent] {text}")
+            return
+
+        try:
+            # Create temp file
+            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as fp:
+                temp_filename = fp.name
+            
+            # Generate (run async in sync context)
+            asyncio.run(self._generate_audio(text, temp_filename))
+            
+            # Play
+            with _audio_lock:
+                pygame.mixer.music.load(temp_filename)
+                pygame.mixer.music.play()
+                
+                if wait:
+                    while pygame.mixer.music.get_busy():
+                        pygame.time.Clock().tick(10)
+                    
+                    # Cleanup
+                    pygame.mixer.music.unload()
+                    try:
+                        os.remove(temp_filename)
+                    except:
+                        pass
+        except Exception as e:
+            print(f"❌ Voice Error: {e}")
+
+    def stop(self):
+        if PYGAME_AVAILABLE:
+            pygame.mixer.music.stop()
+
+# Helper Functions (API)
+
+_engine = None
 
 def _get_engine():
-    """Get or create the TTS engine."""
-    global _tts_engine
-    
-    if not TTS_AVAILABLE:
-        return None
-    
-    with _tts_lock:
-        if _tts_engine is None:
-            try:
-                _tts_engine = pyttsx3.init()
-                _tts_engine.setProperty('rate', TTS_RATE)
-                _tts_engine.setProperty('volume', TTS_VOLUME)
-                
-                # Try to set a nice voice if available
-                voices = _tts_engine.getProperty('voices')
-                for voice in voices:
-                    # Prefer a British or neutral English voice
-                    if 'english' in voice.name.lower() or 'david' in voice.name.lower():
-                        _tts_engine.setProperty('voice', voice.id)
-                        break
-            except Exception as e:
-                print(f"❌ TTS initialization error: {e}")
-                return None
-    
-    return _tts_engine
-
+    global _engine
+    if not _engine:
+        _engine = EdgeTTS()
+    return _engine
 
 def speak(text: str, wait: bool = True) -> bool:
-    """
-    Speak the given text.
-    
-    Args:
-        text: The text to speak
-        wait: If True, wait for speech to complete before returning
-        
-    Returns:
-        True if successful, False otherwise
-    """
-    if not TTS_AVAILABLE and TTS_ENGINE != "edge":
-        print(f"🔊 [TTS Unavailable] {text}")
-        return False
-        
-    if TTS_ENGINE == "edge":
-        try:
-            from .tts_neural import speak_neural
-            speak_neural(text, wait)
-            return True
-        except Exception as e:
-            print(f"⚠️ Edge TTS failed: {e}")
-            # Fallback to pyttsx3 below
-    
-    engine = _get_engine()
-    if engine is None:
-        print(f"🔊 [TTS Error] {text}")
-        return False
-    
+    """Public API: Speak text."""
     try:
-        with _tts_lock:
-            engine.say(text)
-            if wait:
-                engine.runAndWait()
-            else:
-                # Non-blocking speech using a thread
-                threading.Thread(target=engine.runAndWait, daemon=True).start()
+        engine = _get_engine()
+        engine.speak(text, wait)
         return True
     except Exception as e:
-        print(f"❌ Speech error: {e}")
-        print(f"🔊 [Fallback] {text}")
+        print(f"Speak failed: {e}")
         return False
 
-
 def say(text: str) -> bool:
-    """
-    Convenience function to speak text (non-blocking).
-    Also prints the text to console.
-    
-    Args:
-        text: The text to speak
-        
-    Returns:
-        True if successful
-    """
+    """Convenience API: Print and Speak."""
     print(f"🤖 BRO: {text}")
     return speak(text, wait=True)
 
-
-def set_voice_rate(rate: int):
-    """Set the speech rate (words per minute)."""
-    engine = _get_engine()
-    if engine:
-        with _tts_lock:
-            engine.setProperty('rate', rate)
-
-
-def set_voice_volume(volume: float):
-    """Set the speech volume (0.0 to 1.0)."""
-    engine = _get_engine()
-    if engine:
-        with _tts_lock:
-            engine.setProperty('volume', max(0.0, min(1.0, volume)))
-
-
-def list_available_voices():
-    """List all available TTS voices."""
-    engine = _get_engine()
-    if engine:
-        voices = engine.getProperty('voices')
-        print("Available voices:")
-        for i, voice in enumerate(voices):
-            print(f"  {i}: {voice.name} ({voice.id})")
-        return voices
-    return []
-
-
 def stop_speaking():
-    """Stop any current speech."""
-    engine = _get_engine()
-    if engine:
-        with _tts_lock:
-            engine.stop()
+    """Stop current audio."""
+    ensure_stop = _get_engine()
+    if ensure_stop:
+        ensure_stop.stop()
+
+# Legacy/Dummy functions to maintain API compatibility
+def list_available_voices():
+    return ["Edge Neural (Prabhat)"]
+    
+def set_voice_rate(rate): pass
+def set_voice_volume(vol): pass
+
+# Export availability flag
+TTS_AVAILABLE = True

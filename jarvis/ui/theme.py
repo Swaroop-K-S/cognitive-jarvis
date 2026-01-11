@@ -22,12 +22,14 @@ COLORS = {
     "glass_border": "#30363D",  # Subtle border
     "mic_active": "#00F0FF",    # Cyan for mic active
     "mic_inactive": "#F85149",  # Red for inactive
+    "border": "#30363D",        # Standard border
 }
 
 FONTS = {
     "h1": ("Segoe UI", 24, "bold"),
     "h2": ("Segoe UI", 18, "bold"),
     "body": ("Segoe UI", 14),
+    "body_bold": ("Segoe UI", 14, "bold"),
     "code": ("Consolas", 13),
     "tiny": ("Segoe UI", 10),
 }

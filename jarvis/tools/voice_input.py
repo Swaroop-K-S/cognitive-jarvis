@@ -17,9 +17,9 @@ def listen_and_transcribe():
     recognizer.energy_threshold = 4000
     recognizer.dynamic_energy_threshold = True
     
-    # Device ID 2 found to be working
+    # Use default microphone
     try:
-        with sr.Microphone(device_index=2) as source:
+        with sr.Microphone() as source:
             print("🎤 Adjusting for ambient noise...")
             recognizer.adjust_for_ambient_noise(source, duration=0.5)
             
@@ -27,10 +27,37 @@ def listen_and_transcribe():
             # Listen indefinitely until silence is detected (or max 5 seconds phrase)
             audio = recognizer.listen(source, timeout=5, phrase_time_limit=10)
             
-            print("🎤 Recognizing...")
-            # Use Google Speech Recognition (free, high quality, requires internet)
+            print("🎤 Recognizing (Offline Mode)...")
+            
+            try:
+                # 1. Try Whisper (Best Offline)
+                # Requires: pip install openai-whisper
+                text = recognizer.recognize_whisper(audio, language="english")
+                print(f"✅ Whisper: {text}")
+                return text, None
+            except AttributeError:
+                # Fallback if whisper not in this version of SR
+                pass
+            except Exception as e:
+                print(f"⚠️ Whisper failed: {e}")
+
+            try:
+                # 2. Try Vosk (Fast Offline)
+                # Requires: pip install vosk
+                text = recognizer.recognize_vosk(audio)
+                import json
+                text = json.loads(text)["text"]
+                print(f"✅ Vosk: {text}")
+                return text, None
+            except AttributeError:
+                pass
+            except Exception as e:
+                 print(f"⚠️ Vosk failed: {e}")
+
+            # 3. Fallback to Google (Online) with warning
+            print("⚠️ Offline engines failed. Falling back to Google (Online).")
             text = recognizer.recognize_google(audio)
-            print(f"✅ You said: {text}")
+            print(f"✅ Google: {text}")
             return text, None
             
     except sr.WaitTimeoutError:

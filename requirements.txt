@@ -92,10 +92,8 @@ packaging>=23.0
 # pytesseract>=0.3.10  # Alternative OCR (requires Tesseract)
 
 # =============================================================================
-# UNIVERSAL APP LAUNCHER - Enhanced App Discovery (Optional but Recommended)
+# UNIVERSAL APP LAUNCHER - Enhanced App Discovery (Optional)
 # =============================================================================
-# These packages enable better discovery and launching of installed apps:
-winapps>=0.3.0  # Scans Windows registry for installed apps
-AppOpener>=1.7  # Finds and opens apps by name
-pywin32>=306    # Windows API for reading Start Menu shortcuts
+# For better app discovery on Windows, install `pip install -r requirements-windows.txt`
+# Includes: winapps, AppOpener, pywin32
 

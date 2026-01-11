@@ -47,7 +47,7 @@ class ChatPage(ctk.CTkFrame):
         self.mic_btn.pack(side="left", padx=10, pady=10)
         
         # Audio Visualizer (Hidden by default or acts as spacer)
-        self.visualizer = VoiceVisualizer(input_container, width=100, height=40, bg=COLORS["bg_card"])
+        self.visualizer = VoiceVisualizer(input_container, width=100, height=40)
         self.visualizer.pack(side="left", padx=5)
         
         # Entry

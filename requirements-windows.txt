@@ -1,0 +1,6 @@
+# Windows-specific dependencies for BRO AI
+# Install with: pip install -r requirements-windows.txt
+
+winapps>=0.3.0  # Scans Windows registry for installed apps
+AppOpener>=1.7  # Finds and opens apps by name
+pywin32>=306    # Windows API for reading Start Menu shortcuts

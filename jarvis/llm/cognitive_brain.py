@@ -9,6 +9,9 @@ import os
 import re
 from typing import Dict, Any, List, Optional
 import urllib.request
+from jarvis.utils.logger import setup_logger
+
+logger = setup_logger("CognitiveBrain")
 
 # Gemini Removed - Local Only Mode
 
@@ -113,9 +116,9 @@ TOOL_CALL: tool_name(arg1="value1")
         action_emoji = get_action_emoji(decision.action)
         
         # Show cognitive decision
-        print(f"    {action_emoji} {decision.action.value.upper()}: {decision.reasoning}")
+        logger.info(f"    {action_emoji} {decision.action.value.upper()}: {decision.reasoning}")
         if decision.memory_context:
-            print(f"    🔍 Context: {decision.memory_context[:80]}...")
+            logger.info(f"    🔍 Context: {decision.memory_context[:80]}...")
         
         # EXECUTE based on decision
         if decision.action == CognitiveAction.REMEMBER:
@@ -128,29 +131,48 @@ TOOL_CALL: tool_name(arg1="value1")
         
         elif decision.action in [CognitiveAction.ACT, CognitiveAction.CODE, CognitiveAction.CHAT]:
             # Use LLM to generate response with memory context
-            response = self._generate_response(user_input, decision.memory_context)
+            raw_response = self._generate_response(user_input, decision.memory_context)
             
             # Execute any tool calls
-            tool_results = self._extract_and_execute_tools(response)
+            tool_results = self._extract_and_execute_tools(raw_response)
+            
+            # Extract clean text for user
+            clean_response = self.get_spoken_response(raw_response)
+            
+            # Extract thought for background log
+            try:
+                parsed = self._extract_json_block(raw_response)
+                if parsed and 'thought' in parsed:
+                    logger.info(f"\n🤔 THOUGHT: {parsed['thought']}\n")
+            except:
+                pass
+            
+            # Append tool results to the CLEAN response
+            final_response = clean_response
             if tool_results:
-                response = f"{response}\n\n" + "\n".join([f"✓ {res}" for res in tool_results])
+                 final_response = f"{final_response}\n\n" + "\n".join([f"✓ {res}" for res in tool_results])
             
             # Save this conversation to memory
-            self.cognitive.save_conversation(user_input, response)
+            self.cognitive.save_conversation(user_input, final_response)
             
-            return response
+            return final_response
         
         return "I'm not sure how to help with that."
     
     def _generate_response(self, user_input: str, context: str = "") -> str:
         """Generate response using best available brain."""
         is_online = self.check_internet()
-        gemini_ready = bool(self.gemini_model) and is_online
+        gemini_ready = False # Gemini Removed
         ollama_ready = self.check_ollama()
         
         # Enhance prompt with memory context
+        # Enhance prompt with memory context
         if context:
-            enhanced_prompt = f"Context from memory: {context}\n\nUser: {user_input}"
+            enhanced_prompt = f"""[MEMORY START]
+{context}
+[MEMORY END]
+
+User: {user_input}"""
         else:
             enhanced_prompt = user_input
         
@@ -193,12 +215,12 @@ TOOL_CALL: tool_name(arg1="value1")
                 content = result.get("message", {}).get("content", "")
             
             # DEBUG: Print Raw LLM Response to see script usage
-            print(f"\n🧠 [LLM RAW]: {content}\n")
+            logger.debug(f"LLM RAW: {content}")
             
             self.conversation_history.append({"role": "assistant", "content": content})
             return content
         except Exception as e:
-            print(f"❌ LLM Error: {e}")
+            logger.error(f"LLM Error: {e}")
             return f"Error: {e}"
 
     def think_fast(self, prompt: str, image: str = None) -> str:
@@ -212,7 +234,7 @@ TOOL_CALL: tool_name(arg1="value1")
                 messages[0]["images"] = [image]
                 
             payload = {
-                "model": "llava:7b" if image else OLLAMA_MODEL, # Use Vision model if image provided
+                "model": "llava:7b" if image else self.selector.current_model, # Use Vision model if image provided
                 "messages": messages,
                 "stream": False,
                 "options": {"temperature": 0.1, "num_predict": 50} # Very short/fast
@@ -258,7 +280,7 @@ TOOL_CALL: tool_name(arg1="value1")
             else:
                 self.conversation_history = recent_messages
             
-            print(f"    📋 Context pruned: kept {len(self.conversation_history)} messages")
+            logger.info(f"    📋 Context pruned: kept {len(self.conversation_history)} messages")
     
     def _extract_and_execute_tools(self, response: str) -> List[str]:
         """
@@ -280,7 +302,7 @@ TOOL_CALL: tool_name(arg1="value1")
                 if tool_results:
                     return tool_results
         except Exception as e:
-            print(f"    ⚠️ JSON parse failed, trying regex fallback: {e}")
+            logger.debug(f"JSON parse failed, trying regex fallback: {e}")
         
         # =====================================================================
         # METHOD 2: REGEX FALLBACK (Legacy - for backward compatibility)
@@ -390,14 +412,30 @@ TOOL_CALL: tool_name(arg1="value1")
         return results
     
     def get_spoken_response(self, response: str) -> str:
-        """Extract just the spoken response from JSON output."""
+        """Extract just the spoken response from JSON output and clean artifacts."""
         try:
             parsed = self._extract_json_block(response)
             if parsed:
                 return parsed.get('response', response)
         except:
             pass
-        return response
+            
+        # Fallback: Clean commonly leaked headers
+        clean = response
+        
+        # Remove "I remember:" blocks (often hallucinated or leaked from context)
+        if "I remember:" in clean:
+            clean = clean.split("I remember:")[-1].strip()
+        
+        # Remove "Context from memory:" blocks
+        if "Context from memory:" in clean:
+            clean = clean.split("Context from memory:")[-1].strip()
+            
+        # Remove generic "User: ..." echo if present at start
+        if clean.startswith("User:"):
+            clean = re.sub(r'^User:.*?\n', '', clean, flags=re.DOTALL)
+
+        return clean.strip()
 
     
     def clear_history(self):

@@ -4,6 +4,9 @@ Uses vector embeddings to route user prompts to the correct cognitive engine (Me
 even without exact keyword matches.
 """
 import numpy as np
+from jarvis.utils.logger import setup_logger
+
+logger = setup_logger("SemanticRouter")
 from typing import List, Tuple, Optional, Dict
 from jarvis.cognitive import CognitiveAction
 
@@ -26,13 +29,13 @@ class SemanticRouter:
         
         if EMBEDDINGS_AVAILABLE:
             # Load a lightweight model for speed
-            print("    🧠 Loading Semantic Router (all-MiniLM-L6-v2)...")
+            logger.info("    🧠 Loading Semantic Router (all-MiniLM-L6-v2)...")
             try:
                 self.model = SentenceTransformer('all-MiniLM-L6-v2')
                 self._initialize_routes()
-                print("    ✅ Semantic Router Online")
+                logger.info("    ✅ Semantic Router Online")
             except Exception as e:
-                print(f"    ⚠️ Router Load Failed: {e}")
+                logger.error(f"    ⚠️ Router Load Failed: {e}")
                 EMBEDDINGS_AVAILABLE = False
 
     def _initialize_routes(self):
@@ -78,8 +81,9 @@ class SemanticRouter:
         Route a query to an action based on semantic similarity.
         Returns (Action, Confidence) or None if below threshold.
         """
-        if not EMBEDDINGS_AVAILABLE or not self.model:
-            return None
+        if not EMBEDDINGS_AVAILABLE or self.model is None:
+            logger.warning("Router disabled - model not loaded")
+            return None, 0.0
             
         # Encode query
         query_emb = self.model.encode([query])[0]
@@ -99,7 +103,7 @@ class SemanticRouter:
                 best_score = max_score
                 best_action = action
                 
-        # print(f"    🔍 Semantic Route: {best_action} (Conf: {best_score:.2f})")
+        logger.debug(f"Router match: {best_action} ({best_score:.3f})")
         
         if best_score >= self.threshold:
             return best_action, float(best_score)

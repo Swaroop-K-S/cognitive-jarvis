@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JARVIS HUD</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="text/javascript" src="/eel.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+</head>
+
+<body>
+    <div class="container">
+        <!-- Arc Reactor / Viz Center -->
+        <div class="reactor-container">
+            <div class="reactor-ring ring-1"></div>
+            <div class="reactor-ring ring-2"></div>
+            <div class="reactor-ring ring-3"></div>
+            <div class="reactor-core"></div>
+        </div>
+
+        <!-- Status / Header -->
+        <div class="hud-header">
+            <div class="status-panel">
+                <span class="label">SYSTEM:</span> <span class="value" id="sys-status">ONLINE</span>
+            </div>
+            <div class="status-panel">
+                <span class="label">MODE:</span> <span class="value">COGNITIVE</span>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat-interface">
+            <div id="chat-box" class="chat-box">
+                <!-- Messages will appear here -->
+                <div class="message system-msg">INITIALIZING JARVIS PROTOCOL...</div>
+            </div>
+
+            <div class="input-area">
+                <input type="text" id="user-input" placeholder="COMMAND...">
+                <button id="mic-btn" onclick="toggleListening()" class="mic-btn">🎤</button>
+                <button id="cam-btn" onclick="toggleCamera()" class="mic-btn">👁️</button>
+                <button onclick="sendMessage()" class="send-btn">INITIATE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Background Grid/Overlays -->
+    <div class="scan-line"></div>
+    <div class="overlay-grid"></div>
+
+    <!-- SFX Audio Elements -->
+    <audio id="sfx-startup" src="assets/startup.mp3"></audio>
+    <audio id="sfx-ack" src="assets/ack.mp3"></audio>
+    <audio id="sfx-listening" src="assets/listening.mp3"></audio>
+    <audio id="sfx-error" src="assets/error.mp3"></audio>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

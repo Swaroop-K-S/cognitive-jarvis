@@ -1,4 +1,4 @@
-"""Quick TTS Test - Run this to verify audio is working"""
+tts"""Quick TTS Test - Run this to verify audio is working"""
 import pyttsx3
 
 print("Testing TTS...")

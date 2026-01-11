@@ -15,6 +15,16 @@ class VisionPage(ctk.CTkFrame):
                 get_copilot(self.brain)
             except Exception as e:
                 print(f"Copilot Init Error: {e}")
+                
+        # Init Face Sentry
+        try:
+            from jarvis.vision.face_detect import FaceSentry
+            self.sentry = FaceSentry()
+        except Exception as e:
+            print(f"Sentry Init Error: {e}")
+            self.sentry = None
+            
+        self.sentry_active = False
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1) # Result expands
@@ -49,7 +59,14 @@ class VisionPage(ctk.CTkFrame):
         self.switch_copilot = ctk.CTkSwitch(ctrl, text="🤖 AUTO COPILOT", variable=self.copilot_var,
                                             onvalue="on", offvalue="off", font=FONTS["body_bold"],
                                             command=self.toggle_copilot)
-        self.switch_copilot.pack(side="right", padx=20)
+        self.switch_copilot.pack(side="right", padx=10)
+        
+        # Face ID Toggle
+        self.sentry_var = ctk.StringVar(value="off")
+        self.switch_sentry = ctk.CTkSwitch(ctrl, text="🛡️ FACE ID", variable=self.sentry_var,
+                                            onvalue="on", offvalue="off", font=FONTS["body_bold"],
+                                            command=self.toggle_sentry, progress_color=COLORS["text_success"])
+        self.switch_sentry.pack(side="right", padx=10)
         
     def _create_display_area(self):
         # Preview Image
@@ -130,3 +147,84 @@ class VisionPage(ctk.CTkFrame):
                 self.txt_result.insert("0.0", msg)
         except Exception as e:
             self.txt_result.insert("0.0", f"Error toggling copilot: {e}")
+            
+    def toggle_sentry(self):
+        if self.sentry_var.get() == "on":
+            self.sentry_active = True
+            threading.Thread(target=self._run_sentry_loop, daemon=True).start()
+        else:
+            self.sentry_active = False
+            self.lbl_preview.configure(image=None, text="Sentry Deactivated")
+
+    def _run_sentry_loop(self):
+        """Webcam loop for Face ID."""
+        import cv2
+        from PIL import Image
+        from jarvis.voice.tts import say
+        
+        cap = cv2.VideoCapture(0)
+        
+        if not cap.isOpened():
+            self.lbl_preview.configure(text="[Camera Failed]")
+            return
+
+        self.txt_result.delete("0.0", "end")
+        self.txt_result.insert("0.0", "🛡️ SENTRY MODE ACTIVE\nScanning biometric signatures...")
+        
+        try:
+            while self.sentry_active and cap.isOpened():
+                ret, frame = cap.read()
+                if not ret: break
+                
+                # Face Detection
+                if self.sentry:
+                    name, conf = self.sentry.process_frame(frame)
+                    
+                    # Draw Overlay
+                    if name:
+                        color = (0, 255, 0) if name == "Boss" else (0, 0, 255)
+                        cv2.putText(frame, f"TARGET: {name.upper()}", (30, 50), 
+                                   cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+                        
+                        # Greeting Trigger
+                        if name == "Boss" and conf > 0.8:
+                            # Verify if we should greet (FaceSentry handles cooldown internally, 
+                            # but process_frame returns name only if verified time check passed? 
+                            # Wait, process_frame logic handles 'last_seen'. 
+                            # Actually, I should trigger voice here if it's a FRESH detection)
+                            # The logic in FaceSentry updates last_seen but returns name always...
+                            # Let's fix process_frame logic in previous step or handle here.
+                            # Ah, looking at FaceSentry code: 
+                            # "if best_match == 'Boss' and (time.time() - self.last_seen_boss > self.greeting_cooldown): return 'Boss'..."
+                            # So it returns 'Boss' properly.
+                            # Wait, process_frame returns 'Boss' EVERY FRAME if matches.
+                            # The cooldown was inside the return. 
+                            # Let's rely on simple state diff here.
+                            pass
+                        
+                        if name == "Boss" and self.sentry.last_seen_boss == 0:
+                             # First time detection hack
+                             say(f"Welcome back, Boss.")
+                             self.sentry.last_seen_boss = time.time()
+                        elif name == "Boss" and (time.time() - self.sentry.last_seen_boss > 300):
+                             say("Boss detected.") # Re-greet
+                             self.sentry.last_seen_boss = time.time()
+                
+                # Convert to CTkImage
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                img = Image.fromarray(rgb)
+                
+                # Resize for preview
+                mw, mh = 400, 300
+                img.thumbnail((mw, mh))
+                
+                ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
+                
+                self.after(0, lambda: self.lbl_preview.configure(image=ctk_img, text=""))
+                time.sleep(0.03) # ~30fps
+                
+        except Exception as e:
+            print(f"Sentry Loop Error: {e}")
+        finally:
+            cap.release()
+            self.lbl_preview.configure(image=None, text="Sentry Off")
